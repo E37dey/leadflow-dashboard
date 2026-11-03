@@ -64,7 +64,7 @@ export default function PipelineView() {
                       <span className="pcard-value">{fmt.ils(l.estimatedValueILS)}</span>
                     </button>
                     <div className="pcard-foot">
-                      <ScoreRing value={score(l, now)} open={isOpen(l)} />
+                      <span className="pcard-score">ציון<ScoreRing value={score(l, now)} open={isOpen(l)} /></span>
                       <Avatar owner={owners.find((o) => o.id === l.ownerId)} />
                       <RowMenu lead={l} />
                     </div>

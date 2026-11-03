@@ -119,8 +119,8 @@ function Hero() {
                 <YAxis allowDecimals={false} width={44} tick={{ fill: 'var(--muted)', fontSize: 12 }} tickLine={false} axisLine={false}
                   label={{ value: 'מספר לידים', angle: -90, position: 'insideLeft', fill: 'var(--faint)', fontSize: 12, dx: 6, style: { textAnchor: 'middle' } }} />
                 <Tooltip content={ChartTip} cursor={{ stroke: 'var(--border-strong)' }} />
-                <Area type="monotone" dataKey="digital" name="דיגיטלי" stroke="var(--violet)" strokeWidth={2.5} fill="url(#gV)" dot={false} activeDot={{ r: 5 }} isAnimationActive={animate} animationDuration={600} />
-                <Area type="monotone" dataKey="referralPhone" name="הפניה וטלפון" stroke="var(--aqua)" strokeWidth={2.5} fill="url(#gA)" dot={false} activeDot={{ r: 5 }} isAnimationActive={animate} animationDuration={600} />
+                <Area type="monotone" dataKey="digital" name="דיגיטלי" stroke="var(--violet)" strokeWidth={2.5} fill="url(#gV)" dot={false} activeDot={{ r: 5 }} isAnimationActive={animate} animationDuration={220} />
+                <Area type="monotone" dataKey="referralPhone" name="הפניה וטלפון" stroke="var(--aqua)" strokeWidth={2.5} fill="url(#gA)" dot={false} activeDot={{ r: 5 }} isAnimationActive={animate} animationDuration={220} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
