@@ -36,8 +36,8 @@ export function insights(leads: Lead[], now: number): Insight[] {
   const list: Insight[] = [
     {
       id: 'hot-no-contact',
-      title: 'לידים חמים ממתינים לתגובה',
-      reason: 'ציון 80 ומעלה, ואין קשר כבר יותר מ-48 שעות',
+      title: 'לידים חמים ממתינים',
+      reason: 'ציון 80 ומעלה, בלי קשר מעל 48 שעות',
       count: hotNoContact.length,
       leadIds: hotNoContact.map((l) => l.id),
       actionable: true,
@@ -45,7 +45,7 @@ export function insights(leads: Lead[], now: number): Insight[] {
     {
       id: 'overdue-follow-up',
       title: 'מעקבים באיחור',
-      reason: 'ליד פתוח שתאריך המעקב שלו כבר עבר',
+      reason: 'תאריך המעקב של ליד פתוח כבר עבר',
       count: overdue.length,
       leadIds: overdue.map((l) => l.id),
       actionable: true,
@@ -53,7 +53,7 @@ export function insights(leads: Lead[], now: number): Insight[] {
     {
       id: 'stale-proposal',
       title: 'הצעות מחיר שלא טופלו',
-      reason: 'הצעה נשלחה, ואין קשר כבר יותר מ-7 ימים',
+      reason: 'הצעה נשלחה, בלי קשר מעל 7 ימים',
       count: stale.length,
       leadIds: stale.map((l) => l.id),
       actionable: true,
