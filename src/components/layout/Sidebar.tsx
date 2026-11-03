@@ -19,7 +19,7 @@ function Logo() {
         <defs>
           <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="var(--violet)" />
-            <stop offset="1" stopColor="var(--aqua)" />
+            <stop offset="1" stopColor="var(--violet-strong)" />
           </linearGradient>
         </defs>
         <path d="M9 3 22 3 15 14 24 14 9 29 13 17 5 17Z" fill="url(#lg)" />
@@ -32,9 +32,9 @@ function Logo() {
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { view, go, tasks, now } = useStore()
   const { insights } = useDerived()
-  const badge: Partial<Record<View, { n: number; label: string }>> = {
-    tasks: { n: tasksIn(tasks, 'overdue', now).length + tasksIn(tasks, 'today', now).length, label: 'משימות להיום ובאיחור' },
-    insights: { n: insights.filter((i) => i.actionable && i.count > 0).length, label: 'תובנות שדורשות פעולה' },
+  const badge: Partial<Record<View, { n: number; word: string; label: string }>> = {
+    tasks: { n: tasksIn(tasks, 'overdue', now).length + tasksIn(tasks, 'today', now).length, word: 'לביצוע', label: 'משימות להיום ובאיחור' },
+    insights: { n: insights.filter((i) => i.actionable && i.count > 0).length, word: 'לטיפול', label: 'תובנות שדורשות פעולה' },
   }
   const item = (v: View, label: string, Icon: typeof Home) => (
     <li key={v}>
@@ -52,8 +52,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         <span>{label}</span>
         {badge[v] && badge[v]!.n > 0 && (
           <span className="nav-badge" title={badge[v]!.label}>
-            {badge[v]!.n}
-            <span className="sr-only"> {badge[v]!.label}</span>
+            {badge[v]!.n} {badge[v]!.word}
+            <span className="sr-only">: {badge[v]!.label}</span>
           </span>
         )}
       </a>

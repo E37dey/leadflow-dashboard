@@ -24,7 +24,7 @@
 ## שמירה ועדכון ב-GitHub
 ```
 git add <הקבצים>
-git commit -m "feat: ...\n\nSpec: Must 5"
+git commit -m "feat: ..." -m "Spec: Must 5"
 git push -u origin feat/<שם-קצר>
 gh pr create --fill --base main
 gh pr merge --merge --delete-branch
