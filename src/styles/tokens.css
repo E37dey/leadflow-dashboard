@@ -1,0 +1,104 @@
+/* Design tokens. Direction D (Aurora Command) is the default; the other three only swap tokens. */
+:root,
+[data-theme='aurora'] {
+  --bg: #0b0d19;
+  --surface: #131628;
+  --surface-2: #191e34;
+  --surface-3: #20264a;
+  --border: rgba(154, 131, 255, 0.16);
+  --border-strong: rgba(154, 131, 255, 0.34);
+  --text: #f5f5ff;
+  --muted: #aeb6cf;
+  --faint: #7f88a6;
+  --violet: #9a83ff;
+  --violet-strong: #7c5cff;
+  --aqua: #67e8d0;
+  --late: #ff7a93;
+  --on-violet: #0b0d19;
+  --on-aqua: #062420;
+  --sidebar: #0e1122;
+  --ambient-1: rgba(124, 92, 255, 0.22);
+  --ambient-2: rgba(103, 232, 208, 0.12);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.7);
+  --violet-shades: #9a83ff, #b9a8ff, #6f57d9;
+  color-scheme: dark;
+}
+
+[data-theme='graphite'] {
+  --bg: #0b1114;
+  --surface: #131d22;
+  --surface-2: #18252b;
+  --surface-3: #1f3038;
+  --border: rgba(110, 231, 183, 0.14);
+  --border-strong: rgba(110, 231, 183, 0.32);
+  --text: #eef6f3;
+  --muted: #a7b8b4;
+  --faint: #7a8c88;
+  --violet: #6ee7b7;
+  --violet-strong: #34d399;
+  --aqua: #7dd3fc;
+  --late: #fb7185;
+  --on-violet: #052e1f;
+  --on-aqua: #062233;
+  --sidebar: #0d1518;
+  --ambient-1: rgba(110, 231, 183, 0.16);
+  --ambient-2: rgba(125, 211, 252, 0.1);
+  color-scheme: dark;
+}
+
+[data-theme='cloud'] {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #f3f1fd;
+  --surface-3: #e9e5fb;
+  --border: rgba(114, 89, 232, 0.16);
+  --border-strong: rgba(114, 89, 232, 0.4);
+  --text: #1c1838;
+  --muted: #555170;
+  --faint: #7b7794;
+  --violet: #7259e8;
+  --violet-strong: #5b41d6;
+  --aqua: #0f9f88;
+  --late: #c8304f;
+  --on-violet: #ffffff;
+  --on-aqua: #ffffff;
+  --sidebar: #ffffff;
+  --ambient-1: rgba(114, 89, 232, 0.1);
+  --ambient-2: rgba(15, 159, 136, 0.08);
+  --shadow: 0 1px 2px rgba(28, 24, 56, 0.06), 0 12px 28px -18px rgba(28, 24, 56, 0.25);
+  color-scheme: light;
+}
+
+[data-theme='studio'] {
+  --bg: #f3efe7;
+  --surface: #fffcf7;
+  --surface-2: #f7f1e6;
+  --surface-3: #efe5d4;
+  --border: rgba(60, 44, 30, 0.14);
+  --border-strong: rgba(230, 117, 66, 0.5);
+  --text: #26201a;
+  --muted: #5e5449;
+  --faint: #8a7f72;
+  --violet: #c4552a;
+  --violet-strong: #a9461f;
+  --aqua: #2f7d6d;
+  --late: #b4233c;
+  --on-violet: #ffffff;
+  --on-aqua: #ffffff;
+  --sidebar: #2a2622;
+  --ambient-1: rgba(230, 117, 66, 0.1);
+  --ambient-2: rgba(47, 125, 109, 0.08);
+  --shadow: 0 1px 2px rgba(38, 32, 26, 0.06), 0 12px 28px -18px rgba(38, 32, 26, 0.3);
+  color-scheme: light;
+}
+
+/* The studio theme keeps a dark charcoal sidebar. */
+[data-theme='studio'] .sidebar {
+  --text: #f5efe6;
+  --muted: #cfc4b6;
+  --faint: #a59a8c;
+  --border: rgba(255, 255, 255, 0.1);
+  --surface-2: #3a342e;
+  --violet: #f08a5d;
+  --on-violet: #26201a;
+}
