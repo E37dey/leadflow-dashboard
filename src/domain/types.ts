@@ -1,10 +1,12 @@
-export type Source = 'website' | 'facebook' | 'instagram' | 'referral' | 'telephone'
+import type { RegionId } from './regions'
+
+export type Source = 'website' | 'facebook' | 'instagram' | 'referral' | 'telephone' | 'maps'
 export type Stage = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost'
 
-export const SOURCES: Source[] = ['website', 'facebook', 'instagram', 'referral', 'telephone']
+export const SOURCES: Source[] = ['website', 'facebook', 'instagram', 'referral', 'telephone', 'maps']
 export const STAGES: Stage[] = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost']
 export const OPEN_STAGES: Stage[] = ['new', 'contacted', 'qualified', 'proposal']
-export const DIGITAL_SOURCES: Source[] = ['website', 'facebook', 'instagram']
+export const DIGITAL_SOURCES: Source[] = ['website', 'facebook', 'instagram', 'maps']
 
 export const SOURCE_LABEL: Record<Source, string> = {
   website: 'אתר',
@@ -12,6 +14,7 @@ export const SOURCE_LABEL: Record<Source, string> = {
   instagram: 'אינסטגרם',
   referral: 'הפניה',
   telephone: 'טלפון',
+  maps: 'Google Maps',
 }
 
 export const STAGE_LABEL: Record<Stage, string> = {
@@ -30,6 +33,31 @@ export interface Activity {
   text: string
 }
 
+/** Real data about a business from Google Maps (SPEC: מקור נתונים: Airtable). Unknown = null, never invented. */
+export interface Place {
+  area: string | null
+  city: string | null
+  region: RegionId | null
+  category: string | null
+  website: string | null
+  rating: number | null
+  reviews: number | null
+  price: string | null
+  lat: number | null
+  lng: number | null
+  mapsUrl: string | null
+  status: 'open' | 'temporarily_closed' | 'closed'
+  /** Review counts by stars: [5, 4, 3, 2, 1]. */
+  stars: [number, number, number, number, number] | null
+  hours: { day: string; hours: string }[] | null
+  categories: string[]
+  images: number | null
+  /** Derived at import by fixed rules (domain/quality.ts). */
+  brand: string | null
+  recordClass: 'unique' | 'branch' | 'suspected_duplicate'
+  duplicateOf: string | null
+}
+
 export interface Lead {
   id: string
   fullName: string
@@ -46,6 +74,10 @@ export interface Lead {
   nextFollowUpAt: string | null
   notes: string
   activityLog: Activity[]
+  /** Only for real places loaded from Airtable. */
+  place?: Place
+  /** Real places only: true once the user added the bakery to the pipeline (Airtable field Pipeline). */
+  inPipeline?: boolean
 }
 
 export interface Owner {

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Plus, X } from 'lucide-react'
 import { GlobalFilters } from '../../components/layout/Topbar'
 import { Empty } from '../../components/ui/ui'
-import { TODAY } from '../../domain/clock'
+import { today } from '../../domain/clock'
 import { leadsCsv } from '../../domain/csv'
 import { applyTable, paginate, sortLeads } from '../../domain/selectors'
 import type { SortKey } from '../../domain/selectors'
@@ -12,10 +12,17 @@ import { useDerived } from '../../store/derived'
 import { useStore } from '../../store/store'
 import { EMPTY_TABLE } from '../../store/constants'
 import { LeadTable } from './LeadTable'
+import PipelineLeadsView from './PipelineLeadsView'
 
 const PAGE = 12
 
 export default function LeadsView() {
+  const { source } = useStore()
+  // Real places from Airtable get their own screen (SPEC: מקור נתונים: Airtable).
+  return source.kind === 'airtable' ? <PipelineLeadsView /> : <DemoLeadsView />
+}
+
+function DemoLeadsView() {
   const { table, setTable, now, ownerName, owners, setNewLeadOpen, toast } = useStore()
   const { filtered } = useDerived()
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'priority', dir: 'desc' })
@@ -36,7 +43,7 @@ export default function LeadsView() {
     const blob = new Blob([leadsCsv(rows, owners, now)], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `leadflow-leads-${TODAY}.csv`
+    a.download = `leadflow-leads-${today()}.csv`
     document.body.appendChild(a)
     a.click()
     a.remove()

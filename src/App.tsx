@@ -8,6 +8,8 @@ import { VIEW_LABEL } from './store/constants'
 
 const LeadsView = lazy(() => import('./features/leads/LeadsView'))
 const PipelineView = lazy(() => import('./features/pipeline/PipelineView'))
+const PlacesView = lazy(() => import('./features/leads/PlacesView'))
+const RegionsView = lazy(() => import('./features/regions/RegionsView'))
 const TasksView = lazy(() => import('./features/tasks/TasksView'))
 const InsightsView = lazy(() => import('./features/insights/InsightsView'))
 const SettingsView = lazy(() => import('./features/settings/SettingsView'))
@@ -33,6 +35,8 @@ export default function App() {
         <main id="main" tabIndex={-1}>
           <Suspense fallback={null}>
             {view === 'overview' && <Overview />}
+            {view === 'bakeries' && <PlacesView />}
+            {view === 'regions' && <RegionsView />}
             {view === 'leads' && <LeadsView />}
             {view === 'pipeline' && <PipelineView />}
             {view === 'tasks' && <TasksView />}

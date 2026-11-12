@@ -12,9 +12,12 @@ import type { RuleId } from '../../domain/insights'
 import { useDerived } from '../../store/derived'
 import { useStore } from '../../store/store'
 import { LeadTable } from '../leads/LeadTable'
+import { MarketOverview } from './MarketOverview'
 
 export function Overview() {
-  const { setNewLeadOpen } = useStore()
+  const { setNewLeadOpen, source } = useStore()
+  // Real data from Airtable gets a market view; demo data keeps the sales overview (SPEC: מקור נתונים: Airtable).
+  if (source.kind === 'airtable') return <MarketOverview />
   return (
     <div className="page">
       <div className="page-head">
@@ -206,6 +209,7 @@ const SOURCE_COLOR: Record<Source, string> = {
   instagram: 'color-mix(in oklab, var(--violet) 55%, var(--bg))',
   referral: 'var(--aqua)',
   telephone: 'color-mix(in oklab, var(--aqua) 55%, var(--bg))',
+  maps: 'color-mix(in oklab, var(--violet) 40%, var(--text))',
 }
 
 function SourceDonut() {

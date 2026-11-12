@@ -3,20 +3,26 @@ import { RotateCcw } from 'lucide-react'
 import { Overlay } from '../../components/ui/ui'
 import { THEMES } from '../../store/persist'
 import { useStore } from '../../store/store'
-import { DEFAULT_GLOBAL, EMPTY_TABLE, THEME_LABEL } from '../../store/constants'
+import { EMPTY_TABLE, THEME_LABEL, defaultGlobal } from '../../store/constants'
+import AirtableSource from './AirtableSource'
+import { ServerStatusCard, WeightsCard } from './ServerSettings'
 
 export default function SettingsView() {
-  const { theme, dispatch, toast, setGlobal, setTable } = useStore()
+  const { theme, dispatch, toast, setGlobal, setTable, source, server } = useStore()
   const [confirm, setConfirm] = useState(false)
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1>הגדרות</h1>
-          <p className="page-sub">עיצוב, נתוני ההדגמה ואיך מחושב הציון.</p>
+          <p className="page-sub">עיצוב, מקור הנתונים ואיך מחושב הציון.</p>
         </div>
       </div>
       <div className="grid-12">
+        {server && server.state !== 'unavailable' && <ServerStatusCard />}
+        {!(source.kind === 'airtable' && source.via === 'server') && <AirtableSource />}
+        {source.kind === 'airtable' && <WeightsCard />}
+
         <section className="card span-6" aria-labelledby="theme-h">
           <h2 id="theme-h" className="card-title">כיוון עיצוב</h2>
           <div className="theme-list" role="radiogroup" aria-labelledby="theme-h">
@@ -33,7 +39,9 @@ export default function SettingsView() {
         <section className="card span-6" aria-labelledby="data-h">
           <h2 id="data-h" className="card-title">נתוני הדגמה</h2>
           <p className="muted">
-            כל הלידים, החברות והטלפונים בדויים. השינויים שלך נשמרים רק בדפדפן הזה. שעון ההדגמה קבוע: 3.11.2026 בשעה 12:00, כדי שהמספרים יהיו זהים בכל פתיחה.
+            {source.kind === 'airtable'
+              ? 'כרגע מוצגים לידים אמיתיים מ-Airtable, והשעון הוא השעה האמיתית. נתוני ההדגמה הבדויים חוזרים אחרי התנתקות מ-Airtable.'
+              : 'כל הלידים, החברות והטלפונים בדויים. השינויים שלך נשמרים רק בדפדפן הזה. שעון ההדגמה קבוע: 3.11.2026 בשעה 12:00, כדי שהמספרים יהיו זהים בכל פתיחה.'}
           </p>
           <button type="button" className="btn danger" onClick={() => setConfirm(true)}>
             <RotateCcw size={17} aria-hidden="true" />
@@ -41,7 +49,7 @@ export default function SettingsView() {
           </button>
         </section>
 
-        <section className="card span-12" aria-labelledby="score-h">
+        {source.kind !== 'airtable' && <section className="card span-12" aria-labelledby="score-h">
           <h2 id="score-h" className="card-title">איך מחושב ציון העדיפות</h2>
           <p className="muted">נוסחה גלויה, בין 0 ל-100. זה לא חיזוי של מודל. ליד חם = ליד פתוח עם ציון 80 ומעלה.</p>
           <ul className="formula">
@@ -50,7 +58,7 @@ export default function SettingsView() {
             <li><b>קשר אחרון</b>עד יומיים 20, עד שבוע 14, עד שבועיים 8, אחרת 2. בלי קשר: 15 לליד מהיומיים האחרונים, אחרת 0</li>
             <li><b>מעקב הבא</b>באיחור 25, היום 22, תוך 3 ימים 12, מאוחר יותר 4, לא נקבע 0</li>
           </ul>
-        </section>
+        </section>}
       </div>
 
       {confirm && (
@@ -59,7 +67,7 @@ export default function SettingsView() {
             <button type="button" className="btn ghost" data-autofocus onClick={() => setConfirm(false)}>ביטול</button>
             <button type="button" className="btn danger" onClick={() => {
               dispatch({ type: 'reset' })
-              setGlobal(DEFAULT_GLOBAL)
+              setGlobal(defaultGlobal())
               setTable(EMPTY_TABLE)
               setConfirm(false)
               toast('נתוני ההדגמה אופסו')

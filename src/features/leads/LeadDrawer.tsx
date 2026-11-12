@@ -1,8 +1,10 @@
+import { PlaceCard } from './PlaceCard'
+import { OpportunityCard, PlacePipeline } from './PlacePipeline'
 import { useState } from 'react'
 import { CalendarPlus, Mail, Phone, PhoneCall } from 'lucide-react'
 import { Overlay, ScoreRing, SourceTag, StageBadge } from '../../components/ui/ui'
 import { fmt } from '../../components/ui/format'
-import { DEMO_NOW, TODAY, addDays, dayKey, iso, localTime } from '../../domain/clock'
+import { addDays, dayKey, iso, localTime, nowMs, today } from '../../domain/clock'
 import { isOpen, priority, score, scoreParts } from '../../domain/score'
 import { PRIORITY_LABEL, STAGES, STAGE_LABEL } from '../../domain/types'
 import type { Lead, Stage } from '../../domain/types'
@@ -77,7 +79,7 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const addTask = () => {
     dispatch({
       type: 'addTasks',
-      tasks: [{ id: `T-${lead.id}-${Date.now()}`, title: `חזרה לליד: ${lead.fullName}`, leadId: lead.id, dueAt: iso(localTime(addDays(TODAY, 1), 10)), done: false, createdAt: iso(DEMO_NOW) }],
+      tasks: [{ id: `T-${lead.id}-${Date.now()}`, title: `חזרה לליד: ${lead.fullName}`, leadId: lead.id, dueAt: iso(localTime(addDays(today(), 1), 10)), done: false, createdAt: iso(nowMs()) }],
     })
     toast('נוצרה משימה למחר ב-10:00', { undoable: true })
   }
@@ -90,7 +92,11 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         <span className="faint">{lead.id}</span>
       </div>
 
-      <section className="score-box" aria-label="ציון עדיפות">
+      {lead.place && <PlacePipeline lead={lead} />}
+      {lead.place && <OpportunityCard lead={lead} />}
+      {lead.place && <PlaceCard lead={lead} />}
+
+      {!lead.place && <section className="score-box" aria-label="ציון עדיפות">
         <ScoreRing value={s} open={open} />
         <div>
           <b>{open ? `ציון ${s}, עדיפות ${PRIORITY_LABEL[priority(s)]}` : 'ליד סגור, אין ציון עדיפות'}</b>
@@ -100,9 +106,9 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
             </p>
           )}
         </div>
-      </section>
+      </section>}
 
-      <section aria-labelledby="contact-h" className="facts">
+      {!lead.place && <><section aria-labelledby="contact-h" className="facts">
         <h3 id="contact-h">פרטי קשר</h3>
         <dl>
           <div><dt><Mail size={15} aria-hidden="true" />מייל</dt><dd dir="ltr">{lead.email ?? 'לא נמסר'}</dd></div>
@@ -147,7 +153,7 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         </label>
         {error && <p className="field-error" id="val-err" role="alert">{error}</p>}
         <button type="submit" className="btn primary">שמירת שינויים</button>
-      </form>
+      </form></>}
 
       <section aria-labelledby="log-h">
         <h3 id="log-h" className="sec-h">יומן פעילות</h3>
