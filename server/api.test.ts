@@ -128,6 +128,21 @@ describe('server API for Airtable', () => {
   })
 })
 
+describe('public hosting (read only)', () => {
+  it('reads and says readOnly; every write is refused before touching Airtable', async () => {
+    const at = fakeAirtable()
+    const env = { ...ENV, AIRTABLE_READONLY: '1' }
+    const st = await call('GET', '/api/integrations/airtable/status', { env, fetchFn: at.fn })
+    expect(st.json.state).toBe('connected')
+    expect(st.json.readOnly).toBe(true)
+    const H = { 'x-leadflow-write': '1' }
+    const before = at.calls.length
+    expect((await call('PATCH', '/api/leads/M-ChIJplace1', { env, fetchFn: at.fn, headers: H, body: { inPipeline: true } })).status).toBe(403)
+    expect((await call('POST', '/api/activities', { env, fetchFn: at.fn, headers: H, body: { leadId: 'M-ChIJplace1', type: 'note', text: 'x' } })).json.error).toBe('read_only')
+    expect(at.calls.length).toBe(before)
+  })
+})
+
 describe('request validation', () => {
   it('lead patch', () => {
     expect(validateLeadPatch({ stage: 'won', value: 1200.4 })).toEqual({ ok: true, value: { stage: 'won', value: 1200 } })

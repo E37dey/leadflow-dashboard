@@ -32,6 +32,8 @@ export const DEFAULT_WEIGHTS: Weights = {
   regions: Object.fromEntries(REGIONS.map((r) => [r, 1])) as Record<RegionId, number>,
 }
 export const MIN_REVIEWS_FOR_RATING = 10
+/** A score needs data for at least half of the total weight. */
+export const MIN_COVERAGE = 0.5
 
 const clamp = (v: number) => Math.max(0, Math.min(1, v))
 
@@ -52,6 +54,8 @@ export interface Opportunity {
   score: number | null
   parts: { key: PartKey; label: string; value: number | null; weight: number; points: number }[]
   missing: string[]
+  /** Share of the weight that had data (0..1). */
+  coverage: number
 }
 
 export function opportunity(lead: Lead, w: Weights = DEFAULT_WEIGHTS): Opportunity {
@@ -63,8 +67,12 @@ export function opportunity(lead: Lead, w: Weights = DEFAULT_WEIGHTS): Opportuni
     const share = value != null && total ? w.parts[k] / total : 0
     return { key: k, label: PART_LABEL[k], value, weight: w.parts[k], points: Math.round(share * (value ?? 0) * 1000) / 10 }
   })
-  const score = total ? Math.round(parts.reduce((s, p) => s + p.points, 0)) : null
-  return { score, parts, missing: PART_KEYS.filter((k) => v[k] == null && w.parts[k] > 0).map((k) => PART_LABEL[k]) }
+  // Not enough data: when the parts we know carry less than half of the weight, there is no score.
+  // (Otherwise a bakery with no reviews at all would score 100 on website and phone alone.)
+  const all = PART_KEYS.reduce((s, k) => s + w.parts[k], 0)
+  const coverage = all ? total / all : 0
+  const score = total && coverage >= MIN_COVERAGE ? Math.round(parts.reduce((s, p) => s + p.points, 0)) : null
+  return { score, parts, missing: PART_KEYS.filter((k) => v[k] == null && w.parts[k] > 0).map((k) => PART_LABEL[k]), coverage }
 }
 
 /** Read saved weights, falling back to the defaults for anything missing or broken. */

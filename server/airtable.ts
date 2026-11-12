@@ -10,6 +10,8 @@ export interface ServerEnv {
   AIRTABLE_ACTIVITIES_TABLE?: string
   AIRTABLE_OWNERS_TABLE?: string
   AIRTABLE_TASKS_TABLE?: string
+  /** '1' on public hosting: the API only reads, every write is refused. */
+  AIRTABLE_READONLY?: string
 }
 
 export interface Config {

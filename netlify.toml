@@ -1,0 +1,13 @@
+# Public site with live data: static build + the /api Netlify Function (read only).
+# AIRTABLE_TOKEN (read-only token) and AIRTABLE_BASE_ID are set in Netlify's environment, never in this repo.
+[build]
+  command = "npx vite build --base /"
+  publish = "dist"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex"

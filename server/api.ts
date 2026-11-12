@@ -85,13 +85,14 @@ export async function handle(req: IncomingMessage, res: ServerResponse, env: Ser
   const path = url.pathname.replace(/\/+$/, '')
   const force = url.searchParams.get('refresh') === '1'
   const conf = readConfig(env)
+  const readOnly = env.AIRTABLE_READONLY === '1'
 
   if (path === '/api/integrations/airtable/status') {
-    if (!conf.ok) return send(res, 200, { state: 'missing_config', missing: conf.missing, invalid: conf.invalid })
+    if (!conf.ok) return send(res, 200, { state: 'missing_config', missing: conf.missing, invalid: conf.invalid, ...(readOnly ? { readOnly } : {}) })
     try {
       const snap = await sync(conf.config, force, fetchFn)
       const places = snap.data.leads.filter((l) => l.place).length
-      return send(res, 200, { state: places ? 'connected' : 'empty', verifiedAt: snap.syncedAt, ...meta(snap, conf.config), rejected: snap.data.rejected.length })
+      return send(res, 200, { state: places ? 'connected' : 'empty', verifiedAt: snap.syncedAt, ...meta(snap, conf.config), rejected: snap.data.rejected.length, ...(readOnly ? { readOnly } : {}) })
     } catch {
       return send(res, 200, { state: 'error', error: state.lastError, lastSuccessfulSyncAt: state.snap?.syncedAt ?? null, base: maskBase(conf.config.baseId), tables: conf.config.tables })
     }
@@ -116,6 +117,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, env: Ser
 
     const leadMatch = path.match(/^\/api\/leads\/([^/]+)$/)
     if ((req.method === 'PATCH' && leadMatch) || (req.method === 'POST' && path === '/api/activities')) {
+      if (readOnly) return send(res, 403, { error: 'read_only', message: 'באתר הציבורי הדאשבורד לקריאה בלבד. שינויים נשמרים רק כשהוא רץ במחשב עם השרת.' })
       if (!writeAllowed(req)) return send(res, 403, { error: 'forbidden', message: 'כתיבה מותרת רק מהדאשבורד שרץ במחשב הזה.' })
       let body: unknown
       try { body = await readBody(req) } catch { return send(res, 400, { error: 'bad_json', message: 'גוף הבקשה לא תקין.' }) }

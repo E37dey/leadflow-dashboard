@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { BadgeCheck, Clock3, Copy, Database, ExternalLink, GitBranch, Globe, Layers, MapPin, MessageSquare, Percent, Phone, ShieldCheck, Sparkles, Star, Store, Tags, Target, Wallet } from 'lucide-react'
-import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts'
+import { QualityScatter } from './QualityScatter'
 import { Panel } from '../../components/ui/ui'
 import { fmt } from '../../components/ui/format'
 import { marketStats } from '../../domain/maps'
@@ -30,7 +30,6 @@ export function MarketOverview() {
   const hours = useMemo(() => openGrid(filtered), [filtered])
   const regions = useMemo(() => regionRows(filtered), [filtered])
   const pipe = useMemo(() => pipelineSummary(filtered), [filtered])
-  const regionById = useMemo(() => new Map(filtered.map((l) => [l.id, l.place?.region ?? null])), [filtered])
   const colorOf = (l: Lead) => (l.place?.region ? REGION_COLOR[l.place.region] : UNKNOWN_COLOR)
   const present = REGIONS.filter((r) => regions.find((x) => x.id === r)!.bakeries > 0)
   const loaded = source.kind === 'airtable' ? `${fmt.date(source.loadedAt)} ${fmt.time(source.loadedAt)}` : ''
@@ -88,28 +87,7 @@ export function MarketOverview() {
         </section>
 
         <Panel id="mk-quad" title="איכות מול פופולריות" icon={<Target size={18} aria-hidden="true" />} className="span-8">
-          <div className="mk-scatter" role="img" aria-label={`פיזור ${m.scatter.length} מאפיות לפי דירוג ומספר ביקורות`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 10, right: 16, bottom: 18, left: 4 }}>
-                <CartesianGrid stroke="var(--border)" />
-                <XAxis type="number" dataKey="reviews" scale="log" domain={[1, 'auto']} allowDataOverflow tick={{ fill: 'var(--muted)', fontSize: 11 }} tickFormatter={(v) => fmt.num(v)} label={{ value: 'מספר ביקורות (סקאלה לוגריתמית)', position: 'insideBottom', offset: -10, fill: 'var(--faint)', fontSize: 11 }} />
-                <YAxis type="number" dataKey="rating" domain={[3, 5]} tick={{ fill: 'var(--muted)', fontSize: 11 }} width={34} label={{ value: 'דירוג', angle: -90, position: 'insideLeft', fill: 'var(--faint)', fontSize: 11 }} />
-                <ZAxis range={[36, 36]} />
-                <ReferenceLine y={4.5} stroke="var(--aqua)" strokeDasharray="4 4" />
-                <ReferenceLine x={Math.max(1, m.medianReviews)} stroke="var(--aqua)" strokeDasharray="4 4" />
-                <Tooltip cursor={false} content={({ payload }) => {
-                  const p = payload?.[0]?.payload as (typeof m.scatter)[number] | undefined
-                  const r = p ? regionById.get(p.id) : null
-                  return p ? <div className="mk-tip"><b>{p.name}</b><span>{p.area}{r ? `, ${REGION_LABEL[r]}` : ''} · {p.rating.toFixed(1)} · {fmt.num(p.reviews)} ביקורות</span></div> : null
-                }} />
-                {present.map((r) => (
-                  <Scatter key={r} name={REGION_LABEL[r]} data={m.scatter.filter((s) => regionById.get(s.id) === r)} fill={REGION_COLOR[r]} fillOpacity={0.7}
-                    onClick={(d) => openLead((d as unknown as { id: string }).id)} />
-                ))}
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-          <ul className="mk-legend">{present.map((r) => <li key={r}><i style={{ background: REGION_COLOR[r] }} />{REGION_LABEL[r]}</li>)}</ul>
+          <QualityScatter leads={filtered} median={m.medianReviews} onPick={openLead} />
         </Panel>
         <Panel id="mk-quad-cards" title="ארבעה רבעים" icon={<Target size={18} aria-hidden="true" />} className="span-4">
           <div className="mk-quads">

@@ -27,15 +27,16 @@ export function OpportunityCard({ lead }: { lead: Lead }) {
           </li>
         ))}
       </ul>
-      {o.missing.length > 0 && <p className="faint small">לא נספר (חסר נתון, לא אפס): {o.missing.join(', ')}. המשקלים של השאר חולקו מחדש.</p>}
+      {o.score == null && <p className="small">אין מספיק נתונים לציון: יש נתונים רק ל-{Math.round(o.coverage * 100)}% מהמשקל, וצריך לפחות חצי.</p>}
+      {o.missing.length > 0 && <p className="faint small">לא נספר (חסר נתון, לא אפס): {o.missing.join(', ')}.{o.score != null ? ' המשקלים של השאר חולקו מחדש.' : ''}</p>}
       <button type="button" className="link-btn small" onClick={() => go('settings')}>שינוי המשקלים בהגדרות</button>
     </section>
   )
 }
 
 export function PlacePipeline({ lead }: { lead: Lead }) {
-  const { source, updateLeadRemote, addActivity, airtableBusy } = useStore()
-  const live = source.kind === 'airtable' && source.via === 'server'
+  const { source, server, updateLeadRemote, addActivity, airtableBusy } = useStore()
+  const live = source.kind === 'airtable' && source.via === 'server' && !server?.readOnly
   const [form, setForm] = useState({
     stage: lead.stage,
     value: lead.estimatedValueILS ? String(lead.estimatedValueILS) : '',
@@ -48,7 +49,7 @@ export function PlacePipeline({ lead }: { lead: Lead }) {
     return (
       <section className="pc" aria-labelledby="pp-h">
         <h3 id="pp-h" className="sec-h">צנרת מכירה</h3>
-        <p className="muted small">{lead.inPipeline ? `בצנרת, שלב ${STAGE_LABEL[lead.stage]}.` : 'לא בצנרת.'} שינויים נשמרים ל-Airtable רק כשהדאשבורד רץ עם שרת ה-API (npm run dev).</p>
+        <p className="muted small">{lead.inPipeline ? `בצנרת, שלב ${STAGE_LABEL[lead.stage]}.` : 'לא בצנרת.'} {server?.readOnly ? 'באתר הציבורי הנתונים נקראים מ-Airtable, אבל לקריאה בלבד. שינויים נשמרים רק כשהדאשבורד רץ במחשב עם השרת.' : 'שינויים נשמרים ל-Airtable רק כשהדאשבורד רץ עם שרת ה-API (npm run dev).'}</p>
       </section>
     )
   }
