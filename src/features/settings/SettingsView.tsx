@@ -4,6 +4,7 @@ import { Overlay } from '../../components/ui/ui'
 import { THEMES } from '../../store/persist'
 import { useStore } from '../../store/store'
 import { DEFAULT_GLOBAL, EMPTY_TABLE, THEME_LABEL } from '../../store/constants'
+import AirtableSource from './AirtableSource'
 
 export default function SettingsView() {
   const { theme, dispatch, toast, setGlobal, setTable } = useStore()
@@ -13,10 +14,12 @@ export default function SettingsView() {
       <div className="page-head">
         <div>
           <h1>הגדרות</h1>
-          <p className="page-sub">עיצוב, נתוני ההדגמה ואיך מחושב הציון.</p>
+          <p className="page-sub">עיצוב, מקור הנתונים ואיך מחושב הציון.</p>
         </div>
       </div>
       <div className="grid-12">
+        <AirtableSource />
+
         <section className="card span-6" aria-labelledby="theme-h">
           <h2 id="theme-h" className="card-title">כיוון עיצוב</h2>
           <div className="theme-list" role="radiogroup" aria-labelledby="theme-h">

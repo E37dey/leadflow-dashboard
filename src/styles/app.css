@@ -517,3 +517,14 @@ li.task-row { cursor: default; }
   li.task-row { flex-wrap: wrap; }
   li.task-row .btn { order: 5; margin-inline-start: 30px; }
 }
+
+/* ---------- data source: Airtable (SPEC Should 14) ---------- */
+.at-form { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.at-steps { margin: 0; padding-inline-start: 20px; line-height: 1.8; }
+.at-actions { align-items: center; }
+.at-remember { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.at-status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); margin-top: 6px; }
+.at-status > div:first-of-type { flex: 1 1 320px; }
+.at-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 4px color-mix(in oklab, var(--text) 18%, transparent); }
+.at-note { margin-top: 10px; }
+.at-badge { text-decoration: none; color: var(--text); }

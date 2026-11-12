@@ -7,6 +7,9 @@ import type { View } from './constants'
 import { stamp } from './stamp'
 import type { GlobalFilter, Lead, Owner, TableFilter, Task } from '../domain/types'
 import { readSaved, writeSaved } from './persist'
+import { loadFromAirtable } from '../data/airtableClient'
+import type { AtConnection } from '../domain/airtable'
+import { clearConnection, readConnection, writeConnection } from './airtableConn'
 import type { ThemeId } from './persist'
 
 
@@ -59,6 +62,11 @@ function reducer(s: Data, a: Action): Data {
   }
 }
 
+/** Where the data on screen came from (SPEC: "מקור נתונים: Airtable"). */
+export type DataSource =
+  | { kind: 'demo' }
+  | { kind: 'airtable'; baseId: string; loadedAt: string; leads: number; tasks: number; owners: number; rejected: number }
+
 export interface Toast {
   id: number
   text: string
@@ -87,6 +95,13 @@ interface Ctx extends Data {
   toast: (text: string, opts?: { tone?: 'ok' | 'error'; undoable?: boolean }) => void
   dismissToast: (id: number) => void
   ownerName: (id: string) => string
+  source: DataSource
+  /** Load from Airtable. Resolves on success; rejects with a Hebrew message and keeps the current data. */
+  connectAirtable: (conn: AtConnection, remember: boolean) => Promise<void>
+  reloadAirtable: () => Promise<void>
+  disconnectAirtable: () => void
+  airtableBusy: boolean
+  savedConnection: AtConnection | null
 }
 
 const StoreCtx = createContext<Ctx | null>(null)
@@ -101,7 +116,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const saved = readSaved()
     return saved ? { leads: saved.leads, tasks: saved.tasks, theme: saved.theme } : fresh()
   })
-  const owners = useMemo(() => createFixture().owners, [])
+  const demoOwners = useMemo(() => createFixture().owners, [])
+  const [owners, setOwners] = useState<Owner[]>(demoOwners)
+  const [source, setSource] = useState<DataSource>({ kind: 'demo' })
+  const [airtableBusy, setBusy] = useState(false)
+  const conn = useRef<AtConnection | null>(readConnection())
   const last = useRef(data)
   useEffect(() => {
     last.current = data
@@ -153,6 +172,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
   const ownerName = useCallback((id: string) => owners.find((o) => o.id === id)?.name ?? 'לא משויך', [owners])
 
+  const load = useCallback(async (c: AtConnection) => {
+    setBusy(true)
+    try {
+      const d = await loadFromAirtable(c)
+      if (!d.leads.length) throw new Error('לא נמצאו לידים בטבלה Leads.')
+      setOwners(d.owners.length ? d.owners : demoOwners)
+      dispatchRaw({ type: 'restore', data: { leads: d.leads, tasks: d.tasks, theme: last.current.theme } })
+      setSource({ kind: 'airtable', baseId: c.baseId.trim(), loadedAt: new Date().toISOString(), leads: d.leads.length, tasks: d.tasks.length, owners: d.owners.length, rejected: d.rejected.length })
+      return d
+    } finally {
+      setBusy(false)
+    }
+  }, [demoOwners])
+
+  const connectAirtable = useCallback(async (c: AtConnection, remember: boolean) => {
+    const d = await load(c)
+    conn.current = c
+    if (remember) writeConnection(c)
+    else clearConnection()
+    toast(`נטענו מ-Airtable ${d.leads.length} לידים ו-${d.tasks.length} משימות` + (d.rejected.length ? `, ${d.rejected.length} רשומות נדחו` : ''))
+  }, [load, toast])
+
+  const reloadAirtable = useCallback(async () => {
+    if (!conn.current) return
+    const d = await load(conn.current)
+    toast(`נטען מחדש מ-Airtable: ${d.leads.length} לידים`)
+  }, [load, toast])
+
+  const disconnectAirtable = useCallback(() => {
+    conn.current = null
+    clearConnection()
+    setOwners(demoOwners)
+    setSource({ kind: 'demo' })
+    dispatchRaw({ type: 'reset' })
+    toast('התנתקת מ-Airtable. מוצגים נתוני ההדגמה.')
+  }, [demoOwners, toast])
+
+  // A remembered connection loads on start. On failure the local data stays and the error shows.
+  const started = useRef(false)
+  useEffect(() => {
+    if (started.current || !conn.current) return
+    started.current = true
+    load(conn.current).catch((e: Error) => toast(e.message, { tone: 'error' }))
+  }, [load, toast])
+
   const value: Ctx = {
     ...data,
     owners,
@@ -173,6 +237,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     toast,
     dismissToast,
     ownerName,
+    source,
+    connectAirtable,
+    reloadAirtable,
+    disconnectAirtable,
+    airtableBusy,
+    savedConnection: readConnection(),
   }
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>
 }

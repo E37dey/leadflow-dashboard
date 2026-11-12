@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, ChevronDown, Database, Menu, Search } from 'lucide-react'
+import { CalendarDays, ChevronDown, CloudDownload, Database, Menu, Search } from 'lucide-react'
 import { DEFAULT_RANGE, TODAY, addDays, daysBetween } from '../../domain/clock'
 import { SOURCES, SOURCE_LABEL } from '../../domain/types'
 import type { Source } from '../../domain/types'
@@ -122,7 +122,7 @@ function UserMenu() {
 }
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
-  const { showLeads, table, view, setTable } = useStore()
+  const { showLeads, table, view, setTable, source } = useStore()
   const [draft, setDraft] = useState('')
   // On the leads screen the box edits the table search directly; elsewhere it is a draft until Enter.
   const q = view === 'leads' ? table.query : draft
@@ -153,10 +153,17 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         />
       </form>
       <DateRangeControl />
-      <span className="demo-badge" title="כל הנתונים במסך בדויים ונוצרים בדפדפן">
-        <Database size={15} aria-hidden="true" />
-        נתוני הדגמה
-      </span>
+      {source.kind === 'airtable' ? (
+        <a className="demo-badge at-badge" href="#/settings" title={`הנתונים נטענו מ-Airtable, בסיס ${source.baseId}`}>
+          <CloudDownload size={15} aria-hidden="true" />
+          Airtable · {source.leads} לידים
+        </a>
+      ) : (
+        <span className="demo-badge" title="כל הנתונים במסך בדויים ונוצרים בדפדפן">
+          <Database size={15} aria-hidden="true" />
+          נתוני הדגמה
+        </span>
+      )}
       <UserMenu />
     </header>
   )
