@@ -11,6 +11,19 @@ import { loadFromAirtable } from '../data/airtableClient'
 import type { AtConnection } from '../domain/airtable'
 import { clearConnection, readConnection, writeConnection } from './airtableConn'
 import type { ThemeId } from './persist'
+import { fetchData, fetchStatus, patchLead, postActivity } from '../data/apiClient'
+import type { LeadPatch, ServerStatus } from '../data/apiClient'
+import { DEFAULT_WEIGHTS, cleanWeights } from '../domain/opportunity'
+import type { Weights } from '../domain/opportunity'
+
+const WEIGHTS_KEY = 'leadflow:weights'
+const readWeights = (): Weights => {
+  try {
+    return cleanWeights(JSON.parse(localStorage.getItem(WEIGHTS_KEY) ?? 'null'))
+  } catch {
+    return DEFAULT_WEIGHTS
+  }
+}
 
 
 interface Data {
@@ -65,7 +78,7 @@ function reducer(s: Data, a: Action): Data {
 /** Where the data on screen came from (SPEC: "מקור נתונים: Airtable"). */
 export type DataSource =
   | { kind: 'demo' }
-  | { kind: 'airtable'; baseId: string; loadedAt: string; leads: number; tasks: number; owners: number; rejected: number }
+  | { kind: 'airtable'; via: 'server' | 'browser'; baseId: string; loadedAt: string; leads: number; tasks: number; owners: number; rejected: number }
 
 export interface Toast {
   id: number
@@ -102,6 +115,15 @@ interface Ctx extends Data {
   disconnectAirtable: () => void
   airtableBusy: boolean
   savedConnection: AtConnection | null
+  /** The server API (token on the server). null until the first check. */
+  server: ServerStatus | null
+  /** Re-read everything from Airtable through the server (cache refresh). */
+  refreshServer: () => Promise<void>
+  /** Write to Airtable through the server, then reload. Resolves false and shows the error on failure. */
+  updateLeadRemote: (id: string, patch: LeadPatch, done: string) => Promise<boolean>
+  addActivity: (a: { leadId: string; type: 'note' | 'call' | 'email' | 'meeting'; text: string; nextAction?: string }) => Promise<boolean>
+  weights: Weights
+  setWeights: (w: Weights) => void
 }
 
 const StoreCtx = createContext<Ctx | null>(null)
@@ -121,6 +143,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [source, setSource] = useState<DataSource>({ kind: 'demo' })
   const [airtableBusy, setBusy] = useState(false)
   const conn = useRef<AtConnection | null>(readConnection())
+  const [server, setServer] = useState<ServerStatus | null>(null)
+  const [weights, setWeightsState] = useState<Weights>(readWeights)
+  const setWeights = useCallback((w: Weights) => {
+    setWeightsState(w)
+    try { localStorage.setItem(WEIGHTS_KEY, JSON.stringify(w)) } catch { /* this session only */ }
+  }, [])
   const last = useRef(data)
   useEffect(() => {
     last.current = data
@@ -185,7 +213,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setGlobal(defaultGlobal())
       setOwners(d.owners.length ? d.owners : demoOwners)
       dispatchRaw({ type: 'restore', data: { leads: d.leads, tasks: d.tasks, theme: last.current.theme } })
-      setSource({ kind: 'airtable', baseId: c.baseId.trim(), loadedAt: new Date().toISOString(), leads: d.leads.length, tasks: d.tasks.length, owners: d.owners.length, rejected: d.rejected.length })
+      setSource({ kind: 'airtable', via: 'browser', baseId: c.baseId.trim(), loadedAt: new Date().toISOString(), leads: d.leads.length, tasks: d.tasks.length, owners: d.owners.length, rejected: d.rejected.length })
       return d
     } finally {
       setBusy(false)
@@ -200,11 +228,65 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     toast(`נטענו מ-Airtable ${d.leads.length} לידים ו-${d.tasks.length} משימות` + (d.rejected.length ? `, ${d.rejected.length} רשומות נדחו` : ''))
   }, [load, toast])
 
+  /** Server path: same restore as above, data from /api/data. */
+  const loadServer = useCallback(async (refresh: boolean) => {
+    setBusy(true)
+    try {
+      const d = await fetchData(refresh)
+      const t = Date.now()
+      setClock(t)
+      setNow(t)
+      setGlobal((g) => (source.kind === 'airtable' ? g : defaultGlobal()))
+      setOwners(d.owners.length ? d.owners : demoOwners)
+      dispatchRaw({ type: 'restore', data: { leads: d.leads, tasks: d.tasks, theme: last.current.theme } })
+      setSource({ kind: 'airtable', via: 'server', baseId: d.meta.base, loadedAt: d.meta.syncedAt, leads: d.leads.length, tasks: d.tasks.length, owners: d.owners.length, rejected: d.meta.rejected.length })
+      return d
+    } finally {
+      setBusy(false)
+    }
+  }, [demoOwners, source.kind])
+
+  const refreshServer = useCallback(async () => {
+    const st = await fetchStatus(true)
+    setServer(st)
+    if (st.state === 'connected' || st.state === 'empty') {
+      const d = await loadServer(false)
+      toast(`סונכרן מ-Airtable: ${d.leads.length} מאפיות`)
+    } else if (st.state === 'error') {
+      toast(st.error?.message ?? 'שגיאת חיבור ל-Airtable', { tone: 'error' })
+    }
+  }, [loadServer, toast])
+
+  const updateLeadRemote = useCallback(async (id: string, patch: LeadPatch, done: string) => {
+    try {
+      await patchLead(id, patch)
+      await loadServer(false)
+      toast(done)
+      return true
+    } catch (e) {
+      toast(`לא נשמר ב-Airtable: ${(e as Error).message}`, { tone: 'error' })
+      return false
+    }
+  }, [loadServer, toast])
+
+  const addActivity = useCallback(async (a: { leadId: string; type: 'note' | 'call' | 'email' | 'meeting'; text: string; nextAction?: string }) => {
+    try {
+      await postActivity(a)
+      await loadServer(false)
+      toast('הפעילות נשמרה ב-Airtable')
+      return true
+    } catch (e) {
+      toast(`לא נשמר ב-Airtable: ${(e as Error).message}`, { tone: 'error' })
+      return false
+    }
+  }, [loadServer, toast])
+
   const reloadAirtable = useCallback(async () => {
+    if (source.kind === 'airtable' && source.via === 'server') return refreshServer()
     if (!conn.current) return
     const d = await load(conn.current)
     toast(`נטען מחדש מ-Airtable: ${d.leads.length} לידים`)
-  }, [load, toast])
+  }, [load, toast, source, refreshServer])
 
   const disconnectAirtable = useCallback(() => {
     conn.current = null
@@ -218,13 +300,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     toast('התנתקת מ-Airtable. מוצגים נתוני ההדגמה.')
   }, [demoOwners, toast])
 
-  // A remembered connection loads on start. On failure the local data stays and the error shows.
+  // On start: the server API first (token on the server). Without it, a remembered browser connection.
+  // On failure the local data stays and the error shows.
   const started = useRef(false)
   useEffect(() => {
-    if (started.current || !conn.current) return
+    if (started.current) return
     started.current = true
-    load(conn.current).catch((e: Error) => toast(e.message, { tone: 'error' }))
-  }, [load, toast])
+    fetchStatus().then((st) => {
+      setServer(st)
+      if (st.state === 'connected' || st.state === 'empty') return loadServer(false).then(() => undefined)
+      if (st.state === 'error') toast(st.error?.message ?? 'שגיאת חיבור ל-Airtable', { tone: 'error' })
+      if (conn.current) return load(conn.current).then(() => undefined)
+    }).catch((e: Error) => toast(e.message, { tone: 'error' }))
+  }, [load, loadServer, toast])
 
   const value: Ctx = {
     ...data,
@@ -252,6 +340,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     disconnectAirtable,
     airtableBusy,
     savedConnection: readConnection(),
+    server,
+    refreshServer,
+    updateLeadRemote,
+    addActivity,
+    weights,
+    setWeights,
   }
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>
 }

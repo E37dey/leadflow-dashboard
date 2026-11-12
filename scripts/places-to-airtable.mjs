@@ -3,12 +3,14 @@
 // in the datasets are deleted, so Airtable mirrors the source. A local copy goes to .data/ (not in the repo).
 //
 // Needs a WRITE token for this base in AIRTABLE_TOKEN, for example:
-//   node --env-file=<path-to-your-env-file> scripts/places-to-airtable.mjs --base appxPmVAUAsA7yIIm --datasets id1,id2,id3 --replace
+//   node --env-file=<path-to-your-env-file> scripts/places-to-airtable.mjs --base appxPmVAUAsA7yIIm --datasets id1:center,id2:sharon --replace
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'vite'
 
 const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : undefined }
-const BASE = arg('--base'), DATASETS = (arg('--datasets') ?? '').split(',').filter(Boolean), REPLACE = process.argv.includes('--replace')
+// --datasets id:region,id:region (region = the searched area: haifa, center, jerusalem, sharon, north, south)
+const BASE = arg('--base'), REPLACE = process.argv.includes('--replace')
+const DATASETS = (arg('--datasets') ?? '').split(',').filter(Boolean).map((d) => { const [id, region] = d.split(':'); return { id, region: region || null } })
 const TOKEN = process.env.AIRTABLE_TOKEN ?? ''
 if (!/^app[A-Za-z0-9]{14}$/.test(BASE ?? '')) { console.error('Missing --base appXXXXXXXXXXXXXX'); process.exit(1) }
 if (!DATASETS.length) { console.error('Missing --datasets id1,id2'); process.exit(1) }
@@ -60,11 +62,11 @@ try {
   // 1) read the Apify datasets (public by id, fields we use only)
   const items = []
   for (const d of DATASETS) {
-    const res = await fetch(`https://api.apify.com/v2/datasets/${d}/items?clean=true&fields=${maps.APIFY_FIELDS.join(',')}`)
-    if (!res.ok) throw new Error(`Apify dataset ${d} -> ${res.status}`)
+    const res = await fetch(`https://api.apify.com/v2/datasets/${d.id}/items?clean=true&fields=${maps.APIFY_FIELDS.join(',')}`)
+    if (!res.ok) throw new Error(`Apify dataset ${d.id} -> ${res.status}`)
     const rows = await res.json()
-    console.log(`  dataset ${d}: ${rows.length} places`)
-    items.push(...rows)
+    console.log(`  dataset ${d.id} (${d.region ?? 'no region'}): ${rows.length} places`)
+    items.push(...rows.map((r) => ({ ...r, __region: d.region })))
   }
   mkdirSync('.data', { recursive: true })
   writeFileSync('.data/places.json', JSON.stringify({ datasets: DATASETS, fetchedAt: new Date().toISOString(), items }, null, 1))
@@ -73,7 +75,7 @@ try {
   const seen = new Set(), leads = []
   let skipped = 0, dupes = 0
   for (const it of items) {
-    const l = maps.apifyToLead(it)
+    const l = maps.apifyToLead(it, it.__region)
     if (!l) { skipped++; continue }
     if (seen.has(l.id)) { dupes++; continue }
     seen.add(l.id)
@@ -89,6 +91,9 @@ try {
   const cls = {}
   for (const l of classified) cls[l.place.recordClass] = (cls[l.place.recordClass] ?? 0) + 1
   console.log('  classes', JSON.stringify(cls))
+  const reg = {}
+  for (const l of classified) reg[l.place.region ?? 'unknown'] = (reg[l.place.region ?? 'unknown'] ?? 0) + 1
+  console.log('  regions', JSON.stringify(reg))
   for (const l of classified) if (l.place.recordClass === 'suspected_duplicate') console.log('    duplicate?', l.fullName, '->', l.place.duplicateOf)
 
   // 4) write

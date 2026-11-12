@@ -3,6 +3,10 @@ import { cell } from './csv'
 import { DAYS, parseHours } from './quality'
 import type { RecordClass } from './quality'
 import type { Lead } from './types'
+import { DEFAULT_WEIGHTS, opportunity } from './opportunity'
+import type { Weights } from './opportunity'
+import { REGION_LABEL } from './regions'
+import type { RegionId } from './regions'
 
 const TZ = 'Asia/Jerusalem'
 const dayFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' })
@@ -44,37 +48,49 @@ export interface PlaceFilter {
   recordClass: RecordClass | 'all'
   quadrant: Quadrant | 'all'
   openNow: boolean
+  region: RegionId | 'all'
+  /** 0 = any. Places without a rating do not pass a minimum. */
+  minRating: number
+  minReviews: number
+  website: 'all' | 'yes' | 'no'
+  pipeline: 'all' | 'in' | 'out'
 }
-export const EMPTY_PLACE_FILTER: PlaceFilter = { query: '', area: 'all', recordClass: 'all', quadrant: 'all', openNow: false }
+export const EMPTY_PLACE_FILTER: PlaceFilter = { query: '', area: 'all', recordClass: 'all', quadrant: 'all', openNow: false, region: 'all', minRating: 0, minReviews: 0, website: 'all', pipeline: 'all' }
 
 export function filterPlaces(leads: Lead[], f: PlaceFilter, medianReviews: number, now: number): Lead[] {
   const q = f.query.trim().toLowerCase()
   return leads.filter((l) => {
     const p = l.place
     if (!p) return false
-    if (q && ![l.fullName, p.area, p.category, p.brand, l.phone, p.website].some((v) => v?.toLowerCase().includes(q))) return false
+    if (q && ![l.fullName, p.area, p.city, p.category, p.brand, l.phone, p.website].some((v) => v?.toLowerCase().includes(q))) return false
     if (f.area !== 'all' && (p.area ?? 'לא ידוע') !== f.area) return false
     if (f.recordClass !== 'all' && p.recordClass !== f.recordClass) return false
     if (f.quadrant !== 'all' && quadrantOf(l, medianReviews) !== f.quadrant) return false
     if (f.openNow && isOpenAt(l, now) !== true) return false
+    if (f.region !== 'all' && p.region !== f.region) return false
+    if (f.minRating > 0 && (p.rating == null || p.rating < f.minRating)) return false
+    if (f.minReviews > 0 && (p.reviews ?? 0) < f.minReviews) return false
+    if (f.website !== 'all' && !!p.website !== (f.website === 'yes')) return false
+    if (f.pipeline !== 'all' && !!l.inPipeline !== (f.pipeline === 'in')) return false
     return true
   })
 }
 
-export type PlaceSortKey = 'name' | 'area' | 'rating' | 'reviews' | 'positive'
+export type PlaceSortKey = 'name' | 'area' | 'rating' | 'reviews' | 'positive' | 'score'
 /** Share of 4 and 5 star reviews, from the real star breakdown. */
 export const positiveShare = (l: Lead) => {
   const s = l.place?.stars
   const t = s ? s.reduce((a, b) => a + b, 0) : 0
   return s && t ? (s[0] + s[1]) / t : null
 }
-export function sortPlaces(leads: Lead[], key: PlaceSortKey, dir: 'asc' | 'desc'): Lead[] {
+export function sortPlaces(leads: Lead[], key: PlaceSortKey, dir: 'asc' | 'desc', w: Weights = DEFAULT_WEIGHTS): Lead[] {
   const val = (l: Lead): string | number => {
     const p = l.place!
     if (key === 'name') return l.fullName
     if (key === 'area') return p.area ?? ''
     if (key === 'rating') return p.rating ?? -1
     if (key === 'reviews') return p.reviews ?? -1
+    if (key === 'score') return opportunity(l, w).score ?? -1
     return positiveShare(l) ?? -1
   }
   const m = dir === 'asc' ? 1 : -1
@@ -88,10 +104,10 @@ const CLASS_HE: Record<RecordClass, string> = { unique: 'עסק יחיד', branc
 
 /** CSV of the real fields only (Excel-safe, with BOM). */
 export function placesCsv(leads: Lead[]): string {
-  const header = ['מזהה', 'שם', 'אזור', 'קטגוריה', 'טלפון', 'אתר', 'דירוג', 'ביקורות', '5 כוכבים', '4', '3', '2', '1', 'סיווג', 'כפילות של', 'רשת', 'קו רוחב', 'קו אורך', 'Google Maps']
+  const header = ['מזהה', 'שם', 'אזור ארצי', 'עיר', 'אזור', 'קטגוריה', 'טלפון', 'אתר', 'דירוג', 'ביקורות', '5 כוכבים', '4', '3', '2', '1', 'סיווג', 'כפילות של', 'רשת', 'קו רוחב', 'קו אורך', 'Google Maps']
   const rows = leads.map((l) => {
     const p = l.place!
-    return [l.id, l.fullName, p.area ?? '', p.category ?? '', l.phone ?? '', p.website ?? '', p.rating ?? '', p.reviews ?? '',
+    return [l.id, l.fullName, p.region ? REGION_LABEL[p.region] : '', p.city ?? '', p.area ?? '', p.category ?? '', l.phone ?? '', p.website ?? '', p.rating ?? '', p.reviews ?? '',
       ...(p.stars ?? ['', '', '', '', '']), CLASS_HE[p.recordClass], p.duplicateOf ?? '', p.recordClass === 'branch' ? p.brand ?? '' : '',
       p.lat ?? '', p.lng ?? '', p.mapsUrl ?? '']
   })

@@ -1,5 +1,7 @@
 // SPEC: "מקור נתונים: Airtable". Real data: public businesses from Google Maps, collected with Apify.
 // One Apify item becomes one lead plus its real place data. Nothing is invented: unknown stays null.
+import { regionOf } from './regions'
+import type { RegionId } from './regions'
 import type { Lead, Place } from './types'
 
 export const MAPS_OWNER = { id: 'o5', name: 'איליה נודלמן', initials: 'א״נ' }
@@ -46,14 +48,19 @@ export function placeStatus(p: ApifyPlace): Place['status'] {
 }
 
 /** An Apify Google Maps item -> a LEADFLOW lead with its real place data. Returns null when the item is not usable. */
-export function apifyToLead(p: ApifyPlace): Lead | null {
+export function apifyToLead(p: ApifyPlace, searched?: RegionId | null): Lead | null {
   const title = txt(p.title)
   if (!p.placeId || !title || !p.scrapedAt || Number.isNaN(Date.parse(p.scrapedAt))) return null
   const id = `M-${p.placeId}`
-  const area = txt(p.neighborhood) ?? txt(p.city)
+  // Google sometimes puts a phone number in the city field: a place name must contain letters.
+  const name = (v: unknown) => { const t = txt(v); return t && /\p{L}/u.test(t) ? t : null }
+  const area = name(p.neighborhood) ?? name(p.city)
   const reviews = num(p.reviewsCount)
+  const city = name(p.city)
   const place: Place = {
     area,
+    city,
+    region: regionOf(city, searched),
     category: txt(p.categoryName),
     website: txt(p.website),
     // Google shows no rating without reviews: keep it unknown, never 0.
@@ -91,6 +98,7 @@ export function apifyToLead(p: ApifyPlace): Lead | null {
     notes: txt(p.address) ? `כתובת: ${txt(p.address)}` : '',
     activityLog: [{ id: `${id}-a0`, at, text: `נאסף מ-Google Maps דרך Apify. חיפוש: ${p.searchString ?? ''}${area ? `, ${area}` : ''}` }],
     place,
+    inPipeline: false,
   }
 }
 

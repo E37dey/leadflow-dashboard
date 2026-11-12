@@ -5,9 +5,10 @@ import { THEMES } from '../../store/persist'
 import { useStore } from '../../store/store'
 import { EMPTY_TABLE, THEME_LABEL, defaultGlobal } from '../../store/constants'
 import AirtableSource from './AirtableSource'
+import { ServerStatusCard, WeightsCard } from './ServerSettings'
 
 export default function SettingsView() {
-  const { theme, dispatch, toast, setGlobal, setTable, source } = useStore()
+  const { theme, dispatch, toast, setGlobal, setTable, source, server } = useStore()
   const [confirm, setConfirm] = useState(false)
   return (
     <div className="page">
@@ -18,7 +19,9 @@ export default function SettingsView() {
         </div>
       </div>
       <div className="grid-12">
-        <AirtableSource />
+        {server && server.state !== 'unavailable' && <ServerStatusCard />}
+        {!(source.kind === 'airtable' && source.via === 'server') && <AirtableSource />}
+        {source.kind === 'airtable' && <WeightsCard />}
 
         <section className="card span-6" aria-labelledby="theme-h">
           <h2 id="theme-h" className="card-title">כיוון עיצוב</h2>
@@ -46,7 +49,7 @@ export default function SettingsView() {
           </button>
         </section>
 
-        <section className="card span-12" aria-labelledby="score-h">
+        {source.kind !== 'airtable' && <section className="card span-12" aria-labelledby="score-h">
           <h2 id="score-h" className="card-title">איך מחושב ציון העדיפות</h2>
           <p className="muted">נוסחה גלויה, בין 0 ל-100. זה לא חיזוי של מודל. ליד חם = ליד פתוח עם ציון 80 ומעלה.</p>
           <ul className="formula">
@@ -55,7 +58,7 @@ export default function SettingsView() {
             <li><b>קשר אחרון</b>עד יומיים 20, עד שבוע 14, עד שבועיים 8, אחרת 2. בלי קשר: 15 לליד מהיומיים האחרונים, אחרת 0</li>
             <li><b>מעקב הבא</b>באיחור 25, היום 22, תוך 3 ימים 12, מאוחר יותר 4, לא נקבע 0</li>
           </ul>
-        </section>
+        </section>}
       </div>
 
       {confirm && (

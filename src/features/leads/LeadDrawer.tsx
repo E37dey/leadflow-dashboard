@@ -1,4 +1,5 @@
 import { PlaceCard } from './PlaceCard'
+import { OpportunityCard, PlacePipeline } from './PlacePipeline'
 import { useState } from 'react'
 import { CalendarPlus, Mail, Phone, PhoneCall } from 'lucide-react'
 import { Overlay, ScoreRing, SourceTag, StageBadge } from '../../components/ui/ui'
@@ -91,6 +92,8 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         <span className="faint">{lead.id}</span>
       </div>
 
+      {lead.place && <PlacePipeline lead={lead} />}
+      {lead.place && <OpportunityCard lead={lead} />}
       {lead.place && <PlaceCard lead={lead} />}
 
       {!lead.place && <section className="score-box" aria-label="ציון עדיפות">
@@ -105,7 +108,7 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         </div>
       </section>}
 
-      <section aria-labelledby="contact-h" className="facts">
+      {!lead.place && <><section aria-labelledby="contact-h" className="facts">
         <h3 id="contact-h">פרטי קשר</h3>
         <dl>
           <div><dt><Mail size={15} aria-hidden="true" />מייל</dt><dd dir="ltr">{lead.email ?? 'לא נמסר'}</dd></div>
@@ -150,7 +153,7 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         </label>
         {error && <p className="field-error" id="val-err" role="alert">{error}</p>}
         <button type="submit" className="btn primary">שמירת שינויים</button>
-      </form>
+      </form></>}
 
       <section aria-labelledby="log-h">
         <h3 id="log-h" className="sec-h">יומן פעילות</h3>

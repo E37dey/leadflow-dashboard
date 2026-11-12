@@ -2,10 +2,12 @@ import { defaultRange } from '../domain/clock'
 import type { GlobalFilter, TableFilter } from '../domain/types'
 import type { ThemeId } from './persist'
 
-export type View = 'overview' | 'leads' | 'pipeline' | 'tasks' | 'insights' | 'settings'
-export const VIEWS: View[] = ['overview', 'leads', 'pipeline', 'tasks', 'insights', 'settings']
+export type View = 'overview' | 'bakeries' | 'regions' | 'leads' | 'pipeline' | 'tasks' | 'insights' | 'settings'
+export const VIEWS: View[] = ['overview', 'bakeries', 'regions', 'leads', 'pipeline', 'tasks', 'insights', 'settings']
 export const VIEW_LABEL: Record<View, string> = {
   overview: 'סקירה כללית',
+  bakeries: 'מאפיות',
+  regions: 'השוואת אזורים',
   leads: 'לידים',
   pipeline: 'צנרת מכירה',
   tasks: 'משימות',

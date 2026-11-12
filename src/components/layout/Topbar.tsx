@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, ChevronDown, CloudDownload, Database, Menu, Search } from 'lucide-react'
+import { CalendarDays, ChevronDown, CloudDownload, Database, Menu, RefreshCw, Search } from 'lucide-react'
 import { addDays, daysBetween, defaultRange, today } from '../../domain/clock'
 import { SOURCES, SOURCE_LABEL } from '../../domain/types'
 import type { Source } from '../../domain/types'
@@ -121,11 +121,48 @@ function UserMenu() {
   )
 }
 
+const STATE_TEXT = { connected: 'Airtable מחובר', empty: 'Airtable: בסיס ריק', error: 'Airtable: שגיאת חיבור', missing_config: 'Airtable: חסרה הגדרה', unavailable: '' } as const
+
+/** SPEC: "שרת API ל-Airtable (סעיף 19)": connection status, last good sync and a refresh button. Never the token. */
+function AirtableStatus() {
+  const { source, server, airtableBusy, reloadAirtable, toast } = useStore()
+  const st = server?.state ?? 'unavailable'
+  const viaServer = source.kind === 'airtable' && source.via === 'server'
+  if (!viaServer && source.kind !== 'airtable' && (st === 'unavailable' || !server)) {
+    return (
+      <span className="demo-badge" title="כל הנתונים במסך בדויים ונוצרים בדפדפן">
+        <Database size={15} aria-hidden="true" />
+        נתוני הדגמה
+      </span>
+    )
+  }
+  const tone = airtableBusy ? 'sync' : viaServer || source.kind === 'airtable' ? (st === 'error' ? 'err' : 'ok') : st === 'missing_config' || st === 'error' ? 'err' : 'warn'
+  const label = airtableBusy ? 'מסנכרן מ-Airtable…' : viaServer ? STATE_TEXT[st === 'unavailable' ? 'connected' : st] : source.kind === 'airtable' ? 'Airtable (טוקן בדפדפן)' : STATE_TEXT[st]
+  const synced = source.kind === 'airtable' ? source.loadedAt : server?.lastSuccessfulSyncAt ?? null
+  return (
+    <div className={`at-chip ${tone}`} role="status" aria-live="polite">
+      <a href="#/settings" className="at-chip-main" title={source.kind === 'airtable' ? `${source.leads} רשומות · בסיס ${source.baseId}` : server?.error?.message ?? ''}>
+        <span className="at-chip-dot" aria-hidden="true" />
+        <CloudDownload size={15} aria-hidden="true" />
+        <span>{label}</span>
+        {synced && <span className="at-chip-time">סנכרון {new Date(synced).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' })}</span>}
+      </a>
+      {(viaServer || source.kind === 'airtable') && (
+        <button type="button" className="icon-btn at-refresh" aria-label="רענון נתונים מ-Airtable" title="רענון נתונים מ-Airtable" disabled={airtableBusy}
+          onClick={() => reloadAirtable().catch((e: Error) => toast(e.message, { tone: 'error' }))}>
+          <RefreshCw size={16} className={airtableBusy ? 'spin' : undefined} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function Topbar({ onMenu }: { onMenu: () => void }) {
-  const { showLeads, table, view, setTable, source } = useStore()
+  const { showLeads, table, view, setTable, source, go } = useStore()
+  const live = source.kind === 'airtable'
   const [draft, setDraft] = useState('')
   // On the leads screen the box edits the table search directly; elsewhere it is a draft until Enter.
-  const q = view === 'leads' ? table.query : draft
+  const q = view === 'leads' && !live ? table.query : draft
   return (
     <header className="topbar">
       <button type="button" className="icon-btn menu-btn" onClick={onMenu} aria-label="פתיחת התפריט">
@@ -136,34 +173,27 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         role="search"
         onSubmit={(e) => {
           e.preventDefault()
-          showLeads({ query: q })
+          if (live) {
+            location.hash = `#/bakeries?q=${encodeURIComponent(q)}`
+            go('bakeries')
+          } else showLeads({ query: q })
           setDraft('')
         }}
       >
         <Search size={17} aria-hidden="true" />
         <label htmlFor="global-q" className="sr-only">
-          חיפוש לידים
+          {live ? 'חיפוש מאפיות' : 'חיפוש לידים'}
         </label>
         <input
           id="global-q"
           type="search"
-          placeholder="חיפוש לידים, עסקאות, חברות..."
+          placeholder={live ? 'חיפוש מאפייה, עיר, רשת, טלפון...' : 'חיפוש לידים, עסקאות, חברות...'}
           value={q}
-          onChange={(e) => (view === 'leads' ? setTable({ ...table, query: e.target.value }) : setDraft(e.target.value))}
+          onChange={(e) => (view === 'leads' && !live ? setTable({ ...table, query: e.target.value }) : setDraft(e.target.value))}
         />
       </form>
       <DateRangeControl />
-      {source.kind === 'airtable' ? (
-        <a className="demo-badge at-badge" href="#/settings" title={`הנתונים נטענו מ-Airtable, בסיס ${source.baseId}`}>
-          <CloudDownload size={15} aria-hidden="true" />
-          Airtable · {source.leads} לידים
-        </a>
-      ) : (
-        <span className="demo-badge" title="כל הנתונים במסך בדויים ונוצרים בדפדפן">
-          <Database size={15} aria-hidden="true" />
-          נתוני הדגמה
-        </span>
-      )}
+      <AirtableStatus />
       <UserMenu />
     </header>
   )

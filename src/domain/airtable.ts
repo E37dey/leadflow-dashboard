@@ -1,10 +1,11 @@
 // SPEC: "מקור נתונים: Airtable". Pure mapping between Airtable records and the app's types.
 // The base has three tables: Owners, Leads (linked to Owners), Tasks (linked to Leads).
 // Every record carries the app's own id in the "ID" field, so links survive the round trip.
+import { isRegion } from './regions'
 import { SOURCES, STAGES } from './types'
 import type { Activity, Lead, Owner, Place, Source, Stage, Task } from './types'
 
-export const AT_TABLES = { owners: 'Owners', leads: 'Leads', tasks: 'Tasks' } as const
+export const AT_TABLES = { owners: 'Owners', leads: 'Leads', tasks: 'Tasks', activities: 'Activities' } as const
 
 export const F = {
   id: 'ID',
@@ -26,6 +27,9 @@ export const F = {
   notes: 'Notes',
   activity: 'Activity log',
   area: 'Area',
+  city: 'City',
+  region: 'Region',
+  pipeline: 'Pipeline',
   category: 'Category',
   website: 'Website',
   rating: 'Rating',
@@ -48,6 +52,11 @@ export const F = {
   dueAt: 'Due at',
   done: 'Done',
   ruleId: 'Rule ID',
+  // Activities
+  actType: 'Type',
+  actText: 'Description',
+  actDate: 'Date',
+  actNext: 'Next action',
 } as const
 
 export interface AtRecord {
@@ -88,7 +97,7 @@ function readPlace(f: Record<string, unknown>): Place | undefined {
   if (!keys.some((k) => f[k] != null && f[k] !== '')) return undefined
   const status = f[F.status] as Place['status']
   return {
-    area: str(f[F.area]), category: str(f[F.category]), website: str(f[F.website]),
+    area: placeName(f[F.area]), city: placeName(f[F.city]), region: regionField(f[F.region]), category: str(f[F.category]), website: str(f[F.website]),
     rating: numOrNull(f[F.rating]), reviews: numOrNull(f[F.reviews]), price: str(f[F.price]),
     lat: numOrNull(f[F.lat]), lng: numOrNull(f[F.lng]), mapsUrl: str(f[F.mapsUrl]),
     status: STATUSES.includes(status) ? status : 'open',
@@ -102,6 +111,11 @@ function readPlace(f: Record<string, unknown>): Place | undefined {
   }
 }
 
+export const ACT_LABEL: Record<string, string> = { note: 'הערה', call: 'שיחה', email: 'מייל', meeting: 'פגישה', stage: 'שינוי שלב' }
+
+// Google sometimes puts a phone number in the city field: a place name must contain letters.
+const placeName = (v: unknown) => { const s = str(v); return s && /\p{L}/u.test(s) ? s : null }
+const regionField = (v: unknown) => (isRegion(v) ? v : null)
 const firstLink = (v: unknown): string | null => (Array.isArray(v) && typeof v[0] === 'string' ? v[0] : null)
 
 function parseActivity(v: unknown): Activity[] {
@@ -116,7 +130,7 @@ function parseActivity(v: unknown): Activity[] {
 }
 
 /** Airtable records -> app data. Links are resolved through each record's own "ID" field. */
-export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksRec: AtRecord[]): AtData {
+export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksRec: AtRecord[], activitiesRec: AtRecord[] = []): AtData {
   const rejected: AtData['rejected'] = []
   const reject = (table: string, r: AtRecord, reason: string) => rejected.push({ table, id: str(r.fields[F.id]) ?? r.id, reason })
 
@@ -134,7 +148,8 @@ export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksR
   for (const r of leadsRec) {
     const f = r.fields
     const id = str(f[F.id]), fullName = str(f[F.fullName]), createdAt = isoOrNull(f[F.createdAt])
-    const source = f[F.source] as Source, stage = f[F.stage] as Stage
+    const place = readPlace(f)
+    const source = f[F.source] as Source, stage = (f[F.stage] ?? (place ? 'new' : undefined)) as Stage
     const value = typeof f[F.value] === 'number' ? (f[F.value] as number) : 0
     if (!id || !fullName) { reject(AT_TABLES.leads, r, 'חסר ID או שם'); continue }
     if (!createdAt) { reject(AT_TABLES.leads, r, 'תאריך יצירה לא תקין'); continue }
@@ -157,7 +172,7 @@ export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksR
       nextFollowUpAt: isoOrNull(f[F.nextFollowUpAt]),
       notes: str(f[F.notes]) ?? '',
       activityLog: parseActivity(f[F.activity]),
-      ...(readPlace(f) ? { place: readPlace(f) } : {}),
+      ...(place ? { place, inPipeline: f[F.pipeline] === true } : {}),
     })
     leadByRec.set(r.id, id)
   }
@@ -181,6 +196,20 @@ export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksR
     tasks.push(task)
   }
 
+  // Activities (written from the dashboard) go into the lead's log, newest first. A broken link is a rejected record.
+  const byId = new Map(leads.map((l) => [l.id, l]))
+  for (const r of activitiesRec) {
+    const f = r.fields
+    const id = str(f[F.id]), text = str(f[F.actText]), at = isoOrNull(f[F.actDate])
+    const leadRec = firstLink(f[F.lead]), leadId = leadRec ? leadByRec.get(leadRec) : undefined
+    if (!id || !text || !at) { reject(AT_TABLES.activities, r, 'חסר ID, תיאור או תאריך'); continue }
+    const lead = leadId ? byId.get(leadId) : undefined
+    if (!lead) { reject(AT_TABLES.activities, r, 'הפעילות לא מקושרת לליד קיים'); continue }
+    const kind = str(f[F.actType]), next = str(f[F.actNext])
+    lead.activityLog.push({ id, at, text: `${kind && ACT_LABEL[kind] ? `${ACT_LABEL[kind]}: ` : ''}${text}${next ? ` · הצעד הבא: ${next}` : ''}` })
+  }
+  for (const l of leads) l.activityLog.sort((a, b) => b.at.localeCompare(a.at))
+
   // Stable order, same as the demo data (by id).
   leads.sort((a, b) => a.id.localeCompare(b.id))
   tasks.sort((a, b) => a.id.localeCompare(b.id))
@@ -199,21 +228,25 @@ export function leadFields(l: Lead, ownerRecId: string | undefined) {
     [F.fullName]: l.fullName,
     [F.company]: l.company,
     [F.source]: l.source,
-    [F.stage]: l.stage,
-    [F.value]: l.estimatedValueILS,
     [F.createdAt]: l.createdAt,
+    // For a place this is only the import record (where it came from). User notes go to the Activities table.
     [F.activity]: JSON.stringify(l.activityLog),
+  }
+  // Sales fields belong to the user. For a Google Maps place the import never writes them.
+  if (!l.place) {
+    out[F.stage] = l.stage
+    out[F.value] = l.estimatedValueILS
   }
   if (l.email) out[F.email] = l.email
   if (l.phone) out[F.phone] = l.phone
   if (l.notes) out[F.notes] = l.notes
-  if (l.lastContactAt) out[F.lastContactAt] = l.lastContactAt
-  if (l.nextFollowUpAt) out[F.nextFollowUpAt] = l.nextFollowUpAt
+  if (!l.place && l.lastContactAt) out[F.lastContactAt] = l.lastContactAt
+  if (!l.place && l.nextFollowUpAt) out[F.nextFollowUpAt] = l.nextFollowUpAt
   if (ownerRecId) out[F.owner] = [ownerRecId]
   if (l.place) {
     const p = l.place
     const put = (k: string, v: unknown) => { if (v != null && v !== '') out[k] = v }
-    put(F.area, p.area); put(F.category, p.category); put(F.website, p.website); put(F.rating, p.rating); put(F.reviews, p.reviews)
+    put(F.area, p.area); put(F.city, p.city); put(F.region, p.region); put(F.category, p.category); put(F.website, p.website); put(F.rating, p.rating); put(F.reviews, p.reviews)
     put(F.price, p.price); put(F.lat, p.lat); put(F.lng, p.lng); put(F.mapsUrl, p.mapsUrl); put(F.status, p.status)
     if (p.stars) F.stars.forEach((k, i) => put(k, p.stars![i]))
     if (p.hours) put(F.hours, JSON.stringify(p.hours))

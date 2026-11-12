@@ -2,7 +2,7 @@
 // Every number here is a count, sum, share or average of real fields. Unknown values are shown as unknown, never as 0.
 import { useMemo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import { BadgeCheck, Clock3, Copy, Database, ExternalLink, GitBranch, Globe, MapPin, MessageSquare, Phone, ShieldCheck, Star, Store, Tags, Target } from 'lucide-react'
+import { BadgeCheck, Clock3, Copy, Database, ExternalLink, GitBranch, Globe, Layers, MapPin, MessageSquare, Percent, Phone, ShieldCheck, Sparkles, Star, Store, Tags, Target, Wallet } from 'lucide-react'
 import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts'
 import { Panel } from '../../components/ui/ui'
 import { fmt } from '../../components/ui/format'
@@ -11,10 +11,12 @@ import { DAY_SHORT, RECORD_CLASS_LABEL, openGrid } from '../../domain/quality'
 import { isOpenAt } from '../../domain/places'
 import { nowMs } from '../../domain/clock'
 import type { Lead } from '../../domain/types'
+import { REGIONS, REGION_LABEL } from '../../domain/regions'
+import { pipelineSummary, regionRows } from '../../domain/summary'
+import { REGION_COLOR, UNKNOWN_COLOR } from '../regions/regionColors'
 import { useDerived } from '../../store/derived'
 import { useStore } from '../../store/store'
 
-const AREA_COLORS = ['var(--violet)', 'var(--aqua)', '#f0b44c', '#ef7aa5', 'color-mix(in oklab, var(--text) 55%, transparent)']
 const STAR_COLORS = ['#3fd29b', '#9bd36a', '#f0c24c', '#f08f4c', '#ef5f6b']
 const STAR_LABELS = ['5★', '4★', '3★', '2★', '1★']
 const pct = (r: number) => `${Math.round(r * 100)}%`
@@ -22,14 +24,15 @@ const rating = (r: number | null) => (r == null ? 'אין דירוג' : r.toFixe
 const HOURS = Array.from({ length: 19 }, (_, i) => i + 5) // 05:00 to 23:00
 
 export function MarketOverview() {
-  const { source, openLead } = useStore()
+  const { source, openLead, go } = useStore()
   const { filtered } = useDerived()
   const m = useMemo(() => marketStats(filtered), [filtered])
   const hours = useMemo(() => openGrid(filtered), [filtered])
-  const areaColor = (a: string | null) => {
-    const i = Math.max(0, m.areas.findIndex((x) => x.area === (a ?? 'לא ידוע')))
-    return AREA_COLORS[Math.min(i, AREA_COLORS.length - 1)]
-  }
+  const regions = useMemo(() => regionRows(filtered), [filtered])
+  const pipe = useMemo(() => pipelineSummary(filtered), [filtered])
+  const regionById = useMemo(() => new Map(filtered.map((l) => [l.id, l.place?.region ?? null])), [filtered])
+  const colorOf = (l: Lead) => (l.place?.region ? REGION_COLOR[l.place.region] : UNKNOWN_COLOR)
+  const present = REGIONS.filter((r) => regions.find((x) => x.id === r)!.bakeries > 0)
   const loaded = source.kind === 'airtable' ? `${fmt.date(source.loadedAt)} ${fmt.time(source.loadedAt)}` : ''
   const starTotal = m.stars.reduce((s, v) => s + v, 0)
   const openNow = filtered.filter((l) => isOpenAt(l, nowMs()) === true).length
@@ -47,7 +50,7 @@ export function MarketOverview() {
         <div>
           <p className="page-label mk-live"><span className="mk-pulse" aria-hidden="true" />נתונים חיים מ-Airtable · עודכן {loaded}</p>
           <h1>שוק המאפיות</h1>
-          <p className="page-sub">{fmt.num(m.total)} מאפיות אמיתיות מ-Google Maps בתל אביב, רמת גן והרצליה. כל מספר במסך מחושב מהשדות שבבסיס.</p>
+          <p className="page-sub">{fmt.num(m.total)} מאפיות אמיתיות מ-Google Maps ב-{present.length} אזורים, מחיפה ועפולה עד באר שבע. כל מספר במסך מחושב מהשדות שבבסיס.</p>
         </div>
         <div className="mk-now" aria-live="polite">
           <span className="mk-pulse" aria-hidden="true" />
@@ -66,7 +69,7 @@ export function MarketOverview() {
         </section>
 
         <section className="card span-12 mk-kpis" aria-label="מדדים">
-          <Kpi icon={<Store size={18} />} label="מאפיות" value={fmt.num(m.total)} note={`${m.areas.length} אזורים · ${fmt.num(m.chains.length)} רשתות`} />
+          <Kpi icon={<Store size={18} />} label="מאפיות" value={fmt.num(m.total)} note={`${present.length} אזורים · ${fmt.num(m.chains.length)} רשתות`} />
           <Kpi icon={<Star size={18} />} label="דירוג ממוצע" value={m.avgRating == null ? 'אין' : m.avgRating.toFixed(2)} note={`מתוך ${fmt.num(m.rated)} עם דירוג`}>
             <StarRow value={m.avgRating ?? 0} />
           </Kpi>
@@ -74,6 +77,14 @@ export function MarketOverview() {
           <Ring label="עם טלפון" icon={<Phone size={14} />} share={m.withPhone / (m.total || 1)} />
           <Ring label="עם אתר" icon={<Globe size={14} />} share={m.withWebsite / (m.total || 1)} />
           <Ring label="עם שעות" icon={<Clock3 size={14} />} share={hours.withHours / (m.total || 1)} />
+        </section>
+
+        <section className="card span-12 mk-kpis mk-pipe" aria-label="צנרת מכירה">
+          <Kpi icon={<Layers size={18} />} label="לידים בצנרת" value={fmt.num(pipe.total)} note={pipe.total ? `${pipe.open} פתוחים` : 'מאפייה נכנסת רק כשמוסיפים אותה'} />
+          <Kpi icon={<Sparkles size={18} />} label="לידים חדשים" value={fmt.num(pipe.byStage.new)} note="בשלב ״חדש״" />
+          <Kpi icon={<Percent size={18} />} label="שיעור המרה" value={pipe.conversion == null ? 'אין עדיין' : pct(pipe.conversion)} note={pipe.conversion == null ? 'אין עסקאות סגורות' : `${pipe.won} נסגרו בהצלחה מתוך ${pipe.won + pipe.lost} סגורים`} />
+          <Kpi icon={<Wallet size={18} />} label="שווי הזדמנויות" value={pipe.valued ? fmt.ils(pipe.openValue) : 'לא הוזן'} note={pipe.valued ? `סכום של ${pipe.valued} לידים פתוחים עם שווי` : 'רק שווי שהזנת, לא הערכה'} />
+          <button type="button" className="btn ghost sm mk-pipe-go" onClick={() => go(pipe.total ? 'pipeline' : 'bakeries')}>{pipe.total ? 'לצנרת' : 'הוספת מאפיות לצנרת'}</button>
         </section>
 
         <Panel id="mk-quad" title="איכות מול פופולריות" icon={<Target size={18} aria-hidden="true" />} className="span-8">
@@ -88,16 +99,17 @@ export function MarketOverview() {
                 <ReferenceLine x={Math.max(1, m.medianReviews)} stroke="var(--aqua)" strokeDasharray="4 4" />
                 <Tooltip cursor={false} content={({ payload }) => {
                   const p = payload?.[0]?.payload as (typeof m.scatter)[number] | undefined
-                  return p ? <div className="mk-tip"><b>{p.name}</b><span>{p.area} · {p.rating.toFixed(1)} · {fmt.num(p.reviews)} ביקורות</span></div> : null
+                  const r = p ? regionById.get(p.id) : null
+                  return p ? <div className="mk-tip"><b>{p.name}</b><span>{p.area}{r ? `, ${REGION_LABEL[r]}` : ''} · {p.rating.toFixed(1)} · {fmt.num(p.reviews)} ביקורות</span></div> : null
                 }} />
-                {m.areas.map((a) => (
-                  <Scatter key={a.area} name={a.area} data={m.scatter.filter((s) => (s.area ?? 'לא ידוע') === a.area)} fill={areaColor(a.area)} fillOpacity={0.7}
+                {present.map((r) => (
+                  <Scatter key={r} name={REGION_LABEL[r]} data={m.scatter.filter((s) => regionById.get(s.id) === r)} fill={REGION_COLOR[r]} fillOpacity={0.7}
                     onClick={(d) => openLead((d as unknown as { id: string }).id)} />
                 ))}
               </ScatterChart>
             </ResponsiveContainer>
           </div>
-          <Legend areas={m.areas.map((a) => a.area)} color={areaColor} />
+          <ul className="mk-legend">{present.map((r) => <li key={r}><i style={{ background: REGION_COLOR[r] }} />{REGION_LABEL[r]}</li>)}</ul>
         </Panel>
         <Panel id="mk-quad-cards" title="ארבעה רבעים" icon={<Target size={18} aria-hidden="true" />} className="span-4">
           <div className="mk-quads">
@@ -116,9 +128,10 @@ export function MarketOverview() {
             {m.stars.map((v, i) => <li key={i}><i style={{ background: STAR_COLORS[i] }} />{5 - i} כוכבים <b>{starTotal ? pct(v / starTotal) : '0%'}</b></li>)}
           </ul>
           <div className="mk-area-stars">
-            {m.areas.filter((a) => a.stars.some((v) => v)).slice(0, 4).map((a) => (
-              <div key={a.area}><span>{a.area}</span><StackBar values={a.stars} thin /></div>
-            ))}
+            {present.map((r) => {
+              const st = [0, 1, 2, 3, 4].map((i) => filtered.filter((l) => l.place?.region === r && l.place.stars).reduce((s, l) => s + l.place!.stars![i], 0))
+              return <div key={r}><span>{REGION_LABEL[r]}</span><StackBar values={st} thin /></div>
+            })}
           </div>
         </Panel>
 
@@ -143,20 +156,21 @@ export function MarketOverview() {
         </Panel>
 
         <Panel id="mk-map" title="מפת מיקומים" icon={<MapPin size={18} aria-hidden="true" />} className="span-8">
-          <PlaceMap leads={filtered} color={areaColor} onPick={openLead} areas={m.areas.map((a) => a.area)} />
+          <PlaceMap leads={filtered} colorOf={colorOf} onPick={openLead} />
           <p className="faint small">קואורדינטות אמיתיות מ-Google Maps. גודל הנקודה לפי מספר הביקורות, טבעת = סניף של רשת, שקופה = כפילות חשודה.</p>
         </Panel>
         <Panel id="mk-area" title="לפי אזור" icon={<MapPin size={18} aria-hidden="true" />} className="span-4">
           <ul className="mk-bars">
-            {m.areas.map((a) => (
-              <li key={a.area}>
-                <span className="mk-bar-label">{a.area}</span>
-                <span className="mk-bar-track"><span className="mk-bar-fill" style={{ width: `${(100 * a.count) / (m.areas[0]?.count || 1)}%`, background: areaColor(a.area) }} /></span>
-                <span className="mk-bar-num">{fmt.num(a.count)}</span>
-                <span className="mk-bar-note">★ {rating(a.avgRating)} · {fmt.num(a.reviews)} ביקורות</span>
+            {[...regions].sort((a, b) => b.bakeries - a.bakeries).filter((r) => r.bakeries).map((r) => (
+              <li key={r.id}>
+                <span className="mk-bar-label">{r.label}</span>
+                <span className="mk-bar-track"><span className="mk-bar-fill" style={{ width: `${(100 * r.bakeries) / Math.max(1, ...regions.map((x) => x.bakeries))}%`, background: REGION_COLOR[r.id] }} /></span>
+                <span className="mk-bar-num">{fmt.num(r.bakeries)}</span>
+                <span className="mk-bar-note">★ {rating(r.avgRating)} · {fmt.num(r.reviews)} ביקורות</span>
               </li>
             ))}
           </ul>
+          <button type="button" className="link-btn small" onClick={() => go('regions')}>להשוואת אזורים המלאה</button>
         </Panel>
 
         <Panel id="mk-chains" title="רשתות וסניפים" icon={<GitBranch size={18} aria-hidden="true" />} className="span-6">
@@ -211,7 +225,7 @@ export function MarketOverview() {
                   <tr key={l.id}>
                     <td className="faint">{i + 1}</td>
                     <td><button type="button" className="link-btn" onClick={() => openLead(l.id)}>{l.fullName}</button>{l.place!.recordClass === 'branch' && <span className="mk-chip">רשת</span>}</td>
-                    <td>{l.place!.area ?? 'לא ידוע'}</td>
+                    <td>{l.place!.city ?? l.place!.area ?? 'לא ידוע'}<div className="faint small">{l.place!.region ? REGION_LABEL[l.place!.region] : ''}</div></td>
                     <td>★ {rating(l.place!.rating)}</td>
                     <td>{fmt.num(l.place!.reviews ?? 0)}</td>
                     <td style={{ minWidth: 120 }}>{l.place!.stars ? <StackBar values={l.place!.stars} thin /> : 'לא ידוע'}</td>
@@ -283,12 +297,8 @@ function Quad({ title, desc, n, tone }: { title: string; desc: string; n: number
   return <div className={`mk-quad mk-quad-${tone}`}><b>{n}</b><span>{title}</span><small>{desc}</small></div>
 }
 
-function Legend({ areas, color }: { areas: string[]; color: (a: string) => string }) {
-  return <ul className="mk-legend">{areas.map((a) => <li key={a}><i style={{ background: color(a) }} />{a}</li>)}</ul>
-}
-
-/** Plain SVG scatter of the real coordinates (equirectangular, fine at city scale), with area labels. */
-function PlaceMap({ leads, color, onPick, areas }: { leads: Lead[]; color: (area: string | null) => string; onPick: (id: string) => void; areas: string[] }) {
+/** Plain SVG scatter of the real coordinates (equirectangular), with region labels. */
+function PlaceMap({ leads, colorOf, onPick }: { leads: Lead[]; colorOf: (l: Lead) => string; onPick: (id: string) => void }) {
   const pts = leads.filter((l) => l.place?.lat != null && l.place?.lng != null)
   if (!pts.length) return <p className="muted">אין מיקומים בנתונים.</p>
   const lats = pts.map((l) => l.place!.lat!), lngs = pts.map((l) => l.place!.lng!)
@@ -300,10 +310,10 @@ function PlaceMap({ leads, color, onPick, areas }: { leads: Lead[]; color: (area
   const x = (lng: number) => W - pad - (W - 2 * pad - spanX * s) / 2 - (maxLng - lng) * kx * s
   const y = (lat: number) => pad + (H - 2 * pad - spanY * s) / 2 + (maxLat - lat) * s
   const maxRev = Math.max(1, ...pts.map((l) => l.place!.reviews ?? 0))
-  const labels = areas.map((a) => {
-    const ps = pts.filter((l) => (l.place!.area ?? 'לא ידוע') === a)
+  const labels = REGIONS.map((r) => {
+    const ps = pts.filter((l) => l.place!.region === r)
     if (ps.length < 5) return null
-    return { a, x: ps.reduce((t, l) => t + x(l.place!.lng!), 0) / ps.length, y: Math.min(...ps.map((l) => y(l.place!.lat!))) - 10, n: ps.length }
+    return { a: REGION_LABEL[r], x: ps.reduce((t, l) => t + x(l.place!.lng!), 0) / ps.length, y: Math.min(...ps.map((l) => y(l.place!.lat!))) - 10, n: ps.length }
   }).filter(Boolean) as { a: string; x: number; y: number; n: number }[]
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="mk-map" role="img" aria-label={`${pts.length} מאפיות לפי מיקום`}>
@@ -313,7 +323,7 @@ function PlaceMap({ leads, color, onPick, areas }: { leads: Lead[]; color: (area
       <rect width={W} height={H} fill="url(#mk-grid)" />
       {[...pts].sort((a, b) => (b.place!.reviews ?? 0) - (a.place!.reviews ?? 0)).map((l) => (
         <circle key={l.id} cx={x(l.place!.lng!)} cy={y(l.place!.lat!)} r={3 + 13 * Math.sqrt((l.place!.reviews ?? 0) / maxRev)}
-          fill={color(l.place!.area)} fillOpacity={l.place!.recordClass === 'suspected_duplicate' ? 0.2 : 0.6}
+          fill={colorOf(l)} fillOpacity={l.place!.recordClass === 'suspected_duplicate' ? 0.2 : 0.6}
           stroke={l.place!.recordClass === 'branch' ? 'var(--text)' : 'var(--bg)'} strokeWidth={l.place!.recordClass === 'branch' ? 1.4 : 0.8}
           onClick={() => onPick(l.id)} style={{ cursor: 'pointer' }}>
           <title>{`${l.fullName} · ${l.place!.area ?? ''} · ★ ${rating(l.place!.rating)} · ${l.place!.reviews ?? 0} ביקורות`}</title>

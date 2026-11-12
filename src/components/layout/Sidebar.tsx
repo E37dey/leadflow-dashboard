@@ -1,4 +1,4 @@
-import { BarChart3, CheckSquare, Home, Layers, Settings, Users, X } from 'lucide-react'
+import { BarChart3, CheckSquare, Home, Layers, MapPinned, Settings, Store, Users, X } from 'lucide-react'
 import type { View } from '../../store/constants'
 import { useStore } from '../../store/store'
 import { useDerived } from '../../store/derived'
@@ -6,6 +6,8 @@ import { tasksIn } from '../../domain/selectors'
 
 const NAV: { view: View; label: string; icon: typeof Home }[] = [
   { view: 'overview', label: 'סקירה כללית', icon: Home },
+  { view: 'bakeries', label: 'מאפיות', icon: Store },
+  { view: 'regions', label: 'השוואת אזורים', icon: MapPinned },
   { view: 'leads', label: 'לידים', icon: Users },
   { view: 'pipeline', label: 'צנרת מכירה', icon: Layers },
   { view: 'tasks', label: 'משימות', icon: CheckSquare },
@@ -30,7 +32,10 @@ function Logo() {
 }
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { view, go, tasks, now } = useStore()
+  const { view, go, tasks, now, source } = useStore()
+  const live = source.kind === 'airtable'
+  // Bakeries and regions exist only with real data; tasks and insights belong to the demo data.
+  const nav = NAV.filter((n) => (live ? !['tasks', 'insights'].includes(n.view) : !['bakeries', 'regions'].includes(n.view)))
   const { insights } = useDerived()
   const badge: Partial<Record<View, { n: number; word: string; label: string }>> = {
     tasks: { n: tasksIn(tasks, 'overdue', now).length + tasksIn(tasks, 'today', now).length, word: 'לביצוע', label: 'משימות להיום ובאיחור' },
@@ -67,7 +72,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           <X size={18} />
         </button>
       </div>
-      <ul className="nav-list">{NAV.map((n) => item(n.view, n.label, n.icon))}</ul>
+      <ul className="nav-list">{nav.map((n) => item(n.view, n.label, n.icon))}</ul>
       <ul className="nav-list nav-bottom">{item('settings', 'הגדרות', Settings)}</ul>
     </nav>
   )

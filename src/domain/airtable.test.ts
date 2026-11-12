@@ -104,6 +104,25 @@ describe('real places from Google Maps (Apify)', async () => {
     expect(back.rejected).toEqual([])
     expect(back.leads[0]).toEqual(l)
   })
+  it('pipeline, stage and activities come from Airtable; a re-import does not touch them', () => {
+    const l = apifyToLead(item, 'center')!
+    const fields = leadFields(l, 'recO5')
+    expect(fields).not.toHaveProperty(F.stage)
+    expect(fields).not.toHaveProperty(F.value)
+    expect(fields[F.region]).toBe('center')
+    const rec = { id: 'recM1', fields: { ...fields, [F.pipeline]: true, [F.stage]: 'contacted', [F.value]: 4500 } }
+    const acts = [
+      { id: 'recA1', fields: { [F.id]: 'A-1', [F.lead]: ['recM1'], [F.actType]: 'call', [F.actText]: 'דיברתי עם הבעלים', [F.actDate]: '2026-11-12T16:00:00.000Z', [F.actNext]: 'לשלוח הצעה' } },
+      { id: 'recA2', fields: { [F.id]: 'A-2', [F.lead]: ['recXX'], [F.actText]: 'יתום', [F.actDate]: '2026-11-12T10:00:00.000Z' } },
+    ]
+    const back = fromAirtable([{ id: 'recO5', fields: ownerFields(MAPS_OWNER) }], [rec], [], acts)
+    const got = back.leads[0]
+    expect(got.inPipeline).toBe(true)
+    expect(got.stage).toBe('contacted')
+    expect(got.estimatedValueILS).toBe(4500)
+    expect(got.activityLog[0].text).toBe('שיחה: דיברתי עם הבעלים · הצעד הבא: לשלוח הצעה')
+    expect(back.rejected).toEqual([{ table: 'Activities', id: 'A-2', reason: 'הפעילות לא מקושרת לליד קיים' }])
+  })
   it('market numbers are counts and averages of the real fields only', () => {
     const a = apifyToLead(item)!
     const b = apifyToLead({ ...item, placeId: 'ChIJtest2', totalScore: 4.0, reviewsCount: 10, city: 'רמת גן', website: null })!

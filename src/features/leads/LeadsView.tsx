@@ -12,14 +12,14 @@ import { useDerived } from '../../store/derived'
 import { useStore } from '../../store/store'
 import { EMPTY_TABLE } from '../../store/constants'
 import { LeadTable } from './LeadTable'
-import PlacesView from './PlacesView'
+import PipelineLeadsView from './PipelineLeadsView'
 
 const PAGE = 12
 
 export default function LeadsView() {
   const { source } = useStore()
   // Real places from Airtable get their own screen (SPEC: מקור נתונים: Airtable).
-  return source.kind === 'airtable' ? <PlacesView /> : <DemoLeadsView />
+  return source.kind === 'airtable' ? <PipelineLeadsView /> : <DemoLeadsView />
 }
 
 function DemoLeadsView() {

@@ -1,3 +1,5 @@
+import type { RegionId } from './regions'
+
 export type Source = 'website' | 'facebook' | 'instagram' | 'referral' | 'telephone' | 'maps'
 export type Stage = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost'
 
@@ -34,6 +36,8 @@ export interface Activity {
 /** Real data about a business from Google Maps (SPEC: מקור נתונים: Airtable). Unknown = null, never invented. */
 export interface Place {
   area: string | null
+  city: string | null
+  region: RegionId | null
   category: string | null
   website: string | null
   rating: number | null
@@ -72,6 +76,8 @@ export interface Lead {
   activityLog: Activity[]
   /** Only for real places loaded from Airtable. */
   place?: Place
+  /** Real places only: true once the user added the bakery to the pipeline (Airtable field Pipeline). */
+  inPipeline?: boolean
 }
 
 export interface Owner {
