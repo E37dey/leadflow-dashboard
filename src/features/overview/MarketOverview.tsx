@@ -8,6 +8,8 @@ import { Panel } from '../../components/ui/ui'
 import { fmt } from '../../components/ui/format'
 import { marketStats } from '../../domain/maps'
 import { DAY_SHORT, RECORD_CLASS_LABEL, openGrid } from '../../domain/quality'
+import { isOpenAt } from '../../domain/places'
+import { nowMs } from '../../domain/clock'
 import type { Lead } from '../../domain/types'
 import { useDerived } from '../../store/derived'
 import { useStore } from '../../store/store'
@@ -30,6 +32,7 @@ export function MarketOverview() {
   }
   const loaded = source.kind === 'airtable' ? `${fmt.date(source.loadedAt)} ${fmt.time(source.loadedAt)}` : ''
   const starTotal = m.stars.reduce((s, v) => s + v, 0)
+  const openNow = filtered.filter((l) => isOpenAt(l, nowMs()) === true).length
 
   // Facts read off the opening-hours grid (computed, not written by hand).
   const maxOpen = Math.max(1, ...hours.grid.flat())
@@ -45,6 +48,11 @@ export function MarketOverview() {
           <p className="page-label mk-live"><span className="mk-pulse" aria-hidden="true" />נתונים חיים מ-Airtable · עודכן {loaded}</p>
           <h1>שוק המאפיות</h1>
           <p className="page-sub">{fmt.num(m.total)} מאפיות אמיתיות מ-Google Maps בתל אביב, רמת גן והרצליה. כל מספר במסך מחושב מהשדות שבבסיס.</p>
+        </div>
+        <div className="mk-now" aria-live="polite">
+          <span className="mk-pulse" aria-hidden="true" />
+          <b>{fmt.num(openNow)}</b>
+          <span>פתוחות עכשיו<small>לפי שעות הפתיחה בגוגל, מתוך {fmt.num(hours.withHours)} עם שעות</small></span>
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+import { PlaceCard } from './PlaceCard'
 import { useState } from 'react'
 import { CalendarPlus, Mail, Phone, PhoneCall } from 'lucide-react'
 import { Overlay, ScoreRing, SourceTag, StageBadge } from '../../components/ui/ui'
@@ -90,7 +91,9 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         <span className="faint">{lead.id}</span>
       </div>
 
-      <section className="score-box" aria-label="ציון עדיפות">
+      {lead.place && <PlaceCard lead={lead} />}
+
+      {!lead.place && <section className="score-box" aria-label="ציון עדיפות">
         <ScoreRing value={s} open={open} />
         <div>
           <b>{open ? `ציון ${s}, עדיפות ${PRIORITY_LABEL[priority(s)]}` : 'ליד סגור, אין ציון עדיפות'}</b>
@@ -100,7 +103,7 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
             </p>
           )}
         </div>
-      </section>
+      </section>}
 
       <section aria-labelledby="contact-h" className="facts">
         <h3 id="contact-h">פרטי קשר</h3>

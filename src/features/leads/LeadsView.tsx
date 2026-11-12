@@ -12,10 +12,17 @@ import { useDerived } from '../../store/derived'
 import { useStore } from '../../store/store'
 import { EMPTY_TABLE } from '../../store/constants'
 import { LeadTable } from './LeadTable'
+import PlacesView from './PlacesView'
 
 const PAGE = 12
 
 export default function LeadsView() {
+  const { source } = useStore()
+  // Real places from Airtable get their own screen (SPEC: מקור נתונים: Airtable).
+  return source.kind === 'airtable' ? <PlacesView /> : <DemoLeadsView />
+}
+
+function DemoLeadsView() {
   const { table, setTable, now, ownerName, owners, setNewLeadOpen, toast } = useStore()
   const { filtered } = useDerived()
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'priority', dir: 'desc' })
