@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Empty } from '../../components/ui/ui'
 import { fmt } from '../../components/ui/format'
-import { DEMO_NOW, TODAY, addDays, iso, localTime } from '../../domain/clock'
+import { addDays, iso, localTime, nowMs, today } from '../../domain/clock'
 import { isOpen } from '../../domain/score'
 import { tasksIn } from '../../domain/selectors'
 import type { TaskBucket } from '../../domain/selectors'
@@ -18,7 +18,7 @@ const TABS: { id: TaskBucket; label: string }[] = [
 export default function TasksView() {
   const { tasks, now, dispatch, toast, leads, openLead } = useStore()
   const [tab, setTab] = useState<TaskBucket>('today')
-  const [form, setForm] = useState({ title: '', date: addDays(TODAY, 1), time: '10:00', leadId: '' })
+  const [form, setForm] = useState({ title: '', date: addDays(today(), 1), time: '10:00', leadId: '' })
   const [error, setError] = useState('')
   const list = tasksIn(tasks, tab, now)
   const openLeads = leads.filter(isOpen).sort((a, b) => a.fullName.localeCompare(b.fullName, 'he'))
@@ -33,7 +33,7 @@ export default function TasksView() {
     const [h, m] = form.time.split(':').map(Number)
     dispatch({
       type: 'addTasks',
-      tasks: [{ id: `T-u-${Date.now()}`, title: form.title.trim(), leadId: form.leadId || null, dueAt: iso(localTime(form.date, h, m)), done: false, createdAt: iso(DEMO_NOW) }],
+      tasks: [{ id: `T-u-${Date.now()}`, title: form.title.trim(), leadId: form.leadId || null, dueAt: iso(localTime(form.date, h, m)), done: false, createdAt: iso(nowMs()) }],
     })
     setError('')
     setForm({ ...form, title: '' })

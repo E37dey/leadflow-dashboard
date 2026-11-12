@@ -39,3 +39,11 @@ export const iso = (t: number) => new Date(t).toISOString()
 export const TODAY = dayKey(DEMO_NOW)
 /** The initial period: 90 calendar days ending today, inclusive. */
 export const DEFAULT_RANGE = { from: addDays(TODAY, -89), to: TODAY }
+
+// SPEC "מקור נתונים: Airtable": demo data uses the fixed demo clock, real data from Airtable uses the real clock.
+let clockNow = DEMO_NOW
+export function setClock(t: number) { clockNow = t }
+/** The clock the app runs on right now (demo or real). */
+export const nowMs = () => clockNow
+export const today = () => dayKey(clockNow)
+export const defaultRange = () => ({ from: addDays(today(), -89), to: today() })

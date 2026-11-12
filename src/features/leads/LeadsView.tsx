@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Plus, X } from 'lucide-react'
 import { GlobalFilters } from '../../components/layout/Topbar'
 import { Empty } from '../../components/ui/ui'
-import { TODAY } from '../../domain/clock'
+import { today } from '../../domain/clock'
 import { leadsCsv } from '../../domain/csv'
 import { applyTable, paginate, sortLeads } from '../../domain/selectors'
 import type { SortKey } from '../../domain/selectors'
@@ -36,7 +36,7 @@ export default function LeadsView() {
     const blob = new Blob([leadsCsv(rows, owners, now)], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `leadflow-leads-${TODAY}.csv`
+    a.download = `leadflow-leads-${today()}.csv`
     document.body.appendChild(a)
     a.click()
     a.remove()

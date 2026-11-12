@@ -1,10 +1,10 @@
-export type Source = 'website' | 'facebook' | 'instagram' | 'referral' | 'telephone'
+export type Source = 'website' | 'facebook' | 'instagram' | 'referral' | 'telephone' | 'maps'
 export type Stage = 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost'
 
-export const SOURCES: Source[] = ['website', 'facebook', 'instagram', 'referral', 'telephone']
+export const SOURCES: Source[] = ['website', 'facebook', 'instagram', 'referral', 'telephone', 'maps']
 export const STAGES: Stage[] = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost']
 export const OPEN_STAGES: Stage[] = ['new', 'contacted', 'qualified', 'proposal']
-export const DIGITAL_SOURCES: Source[] = ['website', 'facebook', 'instagram']
+export const DIGITAL_SOURCES: Source[] = ['website', 'facebook', 'instagram', 'maps']
 
 export const SOURCE_LABEL: Record<Source, string> = {
   website: 'אתר',
@@ -12,6 +12,7 @@ export const SOURCE_LABEL: Record<Source, string> = {
   instagram: 'אינסטגרם',
   referral: 'הפניה',
   telephone: 'טלפון',
+  maps: 'Google Maps',
 }
 
 export const STAGE_LABEL: Record<Stage, string> = {

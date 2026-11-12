@@ -9,3 +9,6 @@ shots/
 .claude/
 coverage/
 /shots*.png
+
+# real leads collected with Apify (business contact data, not published)
+.data/

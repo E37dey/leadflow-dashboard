@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { Camera, Globe, Info, MessageCircle, Phone, UserPlus, X } from 'lucide-react'
+import { Camera, Globe, Info, MapPin, MessageCircle, Phone, UserPlus, X } from 'lucide-react'
 import type { Owner, Source, Stage } from '../../domain/types'
 import { PRIORITY_LABEL, SOURCE_LABEL, STAGE_LABEL } from '../../domain/types'
 import { priority } from '../../domain/score'
@@ -79,7 +79,7 @@ export function InfoTip({ text }: { text: string }) {
   )
 }
 
-const SOURCE_ICON: Record<Source, typeof Globe> = { website: Globe, facebook: MessageCircle, instagram: Camera, referral: UserPlus, telephone: Phone }
+const SOURCE_ICON: Record<Source, typeof Globe> = { website: Globe, facebook: MessageCircle, instagram: Camera, referral: UserPlus, telephone: Phone, maps: MapPin }
 export function SourceTag({ source }: { source: Source }) {
   const I = SOURCE_ICON[source]
   return (

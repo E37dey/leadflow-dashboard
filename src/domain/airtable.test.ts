@@ -72,3 +72,34 @@ describe('Airtable data source', () => {
     expect(explainError(null)).toContain('רשת')
   })
 })
+
+describe('real leads from Google Maps (Apify)', async () => {
+  const { placeToLead, rowsToPlaces, MAPS_OWNER } = await import('./maps')
+  const file = {
+    columns: ['placeId', 'title', 'category', 'address', 'phone', 'website', 'score', 'reviews', 'scrapedAt', 'search', 'area'],
+    rows: [
+      ['ChIJtest1', 'מסגריית בדיקה', 'רתך', 'התעשייה 1, עפולה', '+972 4-000-0000', null, 4.5, 2, '2026-11-12T14:53:33.827Z', 'מסגרייה', 'עפולה'],
+      ['ChIJtest2', '', null, null, null, null, null, null, '2026-11-12T14:53:33.827Z', 'מסגרייה', 'עפולה'],
+    ],
+  }
+  it('a place becomes a new lead: maps source, value 0 (not invented), owner o5', () => {
+    const [p] = rowsToPlaces(file)
+    const l = placeToLead(p)!
+    expect(l.id).toBe('M-ChIJtest1')
+    expect(l.source).toBe('maps')
+    expect(l.stage).toBe('new')
+    expect(l.estimatedValueILS).toBe(0)
+    expect(l.ownerId).toBe(MAPS_OWNER.id)
+    expect(l.lastContactAt).toBeNull()
+    expect(l.notes).toContain('google.com/maps')
+  })
+  it('a place without a name is skipped', () => {
+    expect(placeToLead(rowsToPlaces(file)[1])).toBeNull()
+  })
+  it('a real lead survives the Airtable round trip', () => {
+    const l = placeToLead(rowsToPlaces(file)[0])!
+    const back = fromAirtable([{ id: 'recO5', fields: ownerFields(MAPS_OWNER) }], [{ id: 'recM1', fields: leadFields(l, 'recO5') }], [])
+    expect(back.rejected).toEqual([])
+    expect(back.leads[0]).toEqual(l)
+  })
+})

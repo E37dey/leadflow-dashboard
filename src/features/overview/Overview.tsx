@@ -206,6 +206,7 @@ const SOURCE_COLOR: Record<Source, string> = {
   instagram: 'color-mix(in oklab, var(--violet) 55%, var(--bg))',
   referral: 'var(--aqua)',
   telephone: 'color-mix(in oklab, var(--aqua) 55%, var(--bg))',
+  maps: 'color-mix(in oklab, var(--violet) 40%, var(--text))',
 }
 
 function SourceDonut() {

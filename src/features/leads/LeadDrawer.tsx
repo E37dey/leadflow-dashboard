@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { CalendarPlus, Mail, Phone, PhoneCall } from 'lucide-react'
 import { Overlay, ScoreRing, SourceTag, StageBadge } from '../../components/ui/ui'
 import { fmt } from '../../components/ui/format'
-import { DEMO_NOW, TODAY, addDays, dayKey, iso, localTime } from '../../domain/clock'
+import { addDays, dayKey, iso, localTime, nowMs, today } from '../../domain/clock'
 import { isOpen, priority, score, scoreParts } from '../../domain/score'
 import { PRIORITY_LABEL, STAGES, STAGE_LABEL } from '../../domain/types'
 import type { Lead, Stage } from '../../domain/types'
@@ -77,7 +77,7 @@ function DrawerBody({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const addTask = () => {
     dispatch({
       type: 'addTasks',
-      tasks: [{ id: `T-${lead.id}-${Date.now()}`, title: `חזרה לליד: ${lead.fullName}`, leadId: lead.id, dueAt: iso(localTime(addDays(TODAY, 1), 10)), done: false, createdAt: iso(DEMO_NOW) }],
+      tasks: [{ id: `T-${lead.id}-${Date.now()}`, title: `חזרה לליד: ${lead.fullName}`, leadId: lead.id, dueAt: iso(localTime(addDays(today(), 1), 10)), done: false, createdAt: iso(nowMs()) }],
     })
     toast('נוצרה משימה למחר ב-10:00', { undoable: true })
   }

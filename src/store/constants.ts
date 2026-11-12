@@ -1,4 +1,4 @@
-import { DEFAULT_RANGE } from '../domain/clock'
+import { defaultRange } from '../domain/clock'
 import type { GlobalFilter, TableFilter } from '../domain/types'
 import type { ThemeId } from './persist'
 
@@ -13,7 +13,8 @@ export const VIEW_LABEL: Record<View, string> = {
   settings: 'הגדרות',
 }
 export const EMPTY_TABLE: TableFilter = { stage: 'all', priority: 'all', query: '', ids: null, idsLabel: null }
-export const DEFAULT_GLOBAL: GlobalFilter = { range: DEFAULT_RANGE, source: 'all', ownerId: 'all' }
+/** The default global filter for the clock the app is on (demo or real). */
+export const defaultGlobal = (): GlobalFilter => ({ range: defaultRange(), source: 'all', ownerId: 'all' })
 export const THEME_LABEL: Record<ThemeId, string> = {
   aurora: 'D: אינדיגו, סגול וטורקיז',
   graphite: 'A: גרפיט ומנטה',

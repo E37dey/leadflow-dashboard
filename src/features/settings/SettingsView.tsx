@@ -3,11 +3,11 @@ import { RotateCcw } from 'lucide-react'
 import { Overlay } from '../../components/ui/ui'
 import { THEMES } from '../../store/persist'
 import { useStore } from '../../store/store'
-import { DEFAULT_GLOBAL, EMPTY_TABLE, THEME_LABEL } from '../../store/constants'
+import { EMPTY_TABLE, THEME_LABEL, defaultGlobal } from '../../store/constants'
 import AirtableSource from './AirtableSource'
 
 export default function SettingsView() {
-  const { theme, dispatch, toast, setGlobal, setTable } = useStore()
+  const { theme, dispatch, toast, setGlobal, setTable, source } = useStore()
   const [confirm, setConfirm] = useState(false)
   return (
     <div className="page">
@@ -36,7 +36,9 @@ export default function SettingsView() {
         <section className="card span-6" aria-labelledby="data-h">
           <h2 id="data-h" className="card-title">נתוני הדגמה</h2>
           <p className="muted">
-            כל הלידים, החברות והטלפונים בדויים. השינויים שלך נשמרים רק בדפדפן הזה. שעון ההדגמה קבוע: 3.11.2026 בשעה 12:00, כדי שהמספרים יהיו זהים בכל פתיחה.
+            {source.kind === 'airtable'
+              ? 'כרגע מוצגים לידים אמיתיים מ-Airtable, והשעון הוא השעה האמיתית. נתוני ההדגמה הבדויים חוזרים אחרי התנתקות מ-Airtable.'
+              : 'כל הלידים, החברות והטלפונים בדויים. השינויים שלך נשמרים רק בדפדפן הזה. שעון ההדגמה קבוע: 3.11.2026 בשעה 12:00, כדי שהמספרים יהיו זהים בכל פתיחה.'}
           </p>
           <button type="button" className="btn danger" onClick={() => setConfirm(true)}>
             <RotateCcw size={17} aria-hidden="true" />
@@ -62,7 +64,7 @@ export default function SettingsView() {
             <button type="button" className="btn ghost" data-autofocus onClick={() => setConfirm(false)}>ביטול</button>
             <button type="button" className="btn danger" onClick={() => {
               dispatch({ type: 'reset' })
-              setGlobal(DEFAULT_GLOBAL)
+              setGlobal(defaultGlobal())
               setTable(EMPTY_TABLE)
               setConfirm(false)
               toast('נתוני ההדגמה אופסו')

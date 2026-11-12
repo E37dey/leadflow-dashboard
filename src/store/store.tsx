@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { createFixture } from '../data/fixture'
-import { DEMO_NOW } from '../domain/clock'
-import { DEFAULT_GLOBAL, EMPTY_TABLE, VIEWS } from './constants'
+import { DEMO_NOW, setClock } from '../domain/clock'
+import { EMPTY_TABLE, VIEWS, defaultGlobal } from './constants'
 import type { View } from './constants'
 import { stamp } from './stamp'
 import type { GlobalFilter, Lead, Owner, TableFilter, Task } from '../domain/types'
@@ -141,7 +141,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setView(v)
   }, [])
 
-  const [global, setGlobal] = useState<GlobalFilter>(DEFAULT_GLOBAL)
+  const [global, setGlobal] = useState<GlobalFilter>(defaultGlobal)
+  const [now, setNow] = useState(DEMO_NOW)
   const [table, setTable] = useState<TableFilter>(EMPTY_TABLE)
   const [openLeadId, openLead] = useState<string | null>(null)
   const [newLeadOpen, setNewLeadOpen] = useState(false)
@@ -177,6 +178,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const d = await loadFromAirtable(c)
       if (!d.leads.length) throw new Error('לא נמצאו לידים בטבלה Leads.')
+      // Real data runs on the real clock, and the period becomes the last 90 days up to today.
+      const t = Date.now()
+      setClock(t)
+      setNow(t)
+      setGlobal(defaultGlobal())
       setOwners(d.owners.length ? d.owners : demoOwners)
       dispatchRaw({ type: 'restore', data: { leads: d.leads, tasks: d.tasks, theme: last.current.theme } })
       setSource({ kind: 'airtable', baseId: c.baseId.trim(), loadedAt: new Date().toISOString(), leads: d.leads.length, tasks: d.tasks.length, owners: d.owners.length, rejected: d.rejected.length })
@@ -203,6 +209,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const disconnectAirtable = useCallback(() => {
     conn.current = null
     clearConnection()
+    setClock(DEMO_NOW)
+    setNow(DEMO_NOW)
+    setGlobal(defaultGlobal())
     setOwners(demoOwners)
     setSource({ kind: 'demo' })
     dispatchRaw({ type: 'reset' })
@@ -220,7 +229,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value: Ctx = {
     ...data,
     owners,
-    now: DEMO_NOW,
+    now,
     dispatch,
     view,
     go,

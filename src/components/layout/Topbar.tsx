@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, ChevronDown, CloudDownload, Database, Menu, Search } from 'lucide-react'
-import { DEFAULT_RANGE, TODAY, addDays, daysBetween } from '../../domain/clock'
+import { addDays, daysBetween, defaultRange, today } from '../../domain/clock'
 import { SOURCES, SOURCE_LABEL } from '../../domain/types'
 import type { Source } from '../../domain/types'
 import { THEMES } from '../../store/persist'
 import { useStore } from '../../store/store'
-import { DEFAULT_GLOBAL, THEME_LABEL } from '../../store/constants'
+import { defaultGlobal, THEME_LABEL } from '../../store/constants'
 import { fmt } from '../ui/format'
 
 const PRESETS: { label: string; days: number }[] = [
@@ -15,7 +15,7 @@ const PRESETS: { label: string; days: number }[] = [
 ]
 
 function rangeLabel(from: string, to: string) {
-  const preset = PRESETS.find((p) => to === TODAY && daysBetween(from, to) + 1 === p.days)
+  const preset = PRESETS.find((p) => to === today() && daysBetween(from, to) + 1 === p.days)
   return preset ? preset.label : `${fmt.date(from + 'T12:00:00Z')} עד ${fmt.date(to + 'T12:00:00Z')}`
 }
 
@@ -54,9 +54,9 @@ function DateRangeControl() {
                 key={p.days}
                 type="button"
                 className="chip"
-                aria-pressed={r.to === TODAY && daysBetween(r.from, r.to) + 1 === p.days}
+                aria-pressed={r.to === today() && daysBetween(r.from, r.to) + 1 === p.days}
                 onClick={() => {
-                  set(addDays(TODAY, -(p.days - 1)), TODAY)
+                  set(addDays(today(), -(p.days - 1)), today())
                   setOpen(false)
                 }}
               >
@@ -67,11 +67,11 @@ function DateRangeControl() {
           <div className="range-inputs">
             <label>
               מתאריך
-              <input type="date" value={r.from} min={DEFAULT_RANGE.from} max={r.to} onChange={(e) => set(e.target.value, r.to)} />
+              <input type="date" value={r.from} min={defaultRange().from} max={r.to} onChange={(e) => set(e.target.value, r.to)} />
             </label>
             <label>
               עד תאריך
-              <input type="date" value={r.to} min={r.from} max={TODAY} onChange={(e) => set(r.from, e.target.value)} />
+              <input type="date" value={r.to} min={r.from} max={today()} onChange={(e) => set(r.from, e.target.value)} />
             </label>
           </div>
           <p className="hint">ימים קלנדריים בשעון ישראל, כולל שני הקצוות.</p>
@@ -172,7 +172,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
 /** Global filters: source and owner. They change every number on every screen. */
 export function GlobalFilters() {
   const { global, setGlobal, owners } = useStore()
-  const changed = global.source !== 'all' || global.ownerId !== 'all' || global.range.from !== DEFAULT_RANGE.from || global.range.to !== DEFAULT_RANGE.to
+  const changed = global.source !== 'all' || global.ownerId !== 'all' || global.range.from !== defaultRange().from || global.range.to !== defaultRange().to
   return (
     <div className="gfilters" role="group" aria-label="סינון לכל הדאשבורד">
       <label>
@@ -198,7 +198,7 @@ export function GlobalFilters() {
         </select>
       </label>
       {changed && (
-        <button type="button" className="link-btn" onClick={() => setGlobal(DEFAULT_GLOBAL)}>
+        <button type="button" className="link-btn" onClick={() => setGlobal(defaultGlobal())}>
           ניקוי סינון
         </button>
       )}
