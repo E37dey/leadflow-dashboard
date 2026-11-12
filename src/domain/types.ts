@@ -31,6 +31,20 @@ export interface Activity {
   text: string
 }
 
+/** Real data about a business from Google Maps (SPEC: מקור נתונים: Airtable). Unknown = null, never invented. */
+export interface Place {
+  area: string | null
+  category: string | null
+  website: string | null
+  rating: number | null
+  reviews: number | null
+  price: string | null
+  lat: number | null
+  lng: number | null
+  mapsUrl: string | null
+  status: 'open' | 'temporarily_closed' | 'closed'
+}
+
 export interface Lead {
   id: string
   fullName: string
@@ -47,6 +61,8 @@ export interface Lead {
   nextFollowUpAt: string | null
   notes: string
   activityLog: Activity[]
+  /** Only for real places loaded from Airtable. */
+  place?: Place
 }
 
 export interface Owner {

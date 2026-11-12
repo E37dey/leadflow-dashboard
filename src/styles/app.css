@@ -528,3 +528,22 @@ li.task-row { cursor: default; }
 .at-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 4px color-mix(in oklab, var(--text) 18%, transparent); }
 .at-note { margin-top: 10px; }
 .at-badge { text-decoration: none; color: var(--text); }
+
+/* ---------- market view: real data from Airtable ---------- */
+.mk-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.mk-kpi { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+.mk-kpi-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.mk-kpi-label svg { color: var(--violet); }
+.mk-kpi-value { font-size: 28px; font-weight: 800; line-height: 1.1; }
+.mk-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.mk-bars li { display: grid; grid-template-columns: 110px 1fr 44px; grid-template-rows: auto auto; gap: 4px 10px; align-items: center; }
+.mk-bar-label { font-weight: 600; }
+.mk-bar-track { height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.mk-bar-fill { display: block; height: 100%; border-radius: 6px; }
+.mk-bar-num { font-weight: 700; text-align: end; }
+.mk-bar-note { grid-column: 2 / 4; font-size: 12.5px; color: var(--muted); }
+.mk-chart { height: 240px; }
+.mk-map { width: 100%; height: auto; display: block; background: var(--surface-2); border-radius: 12px; }
+.mk-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mk-cats li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: 14px; }
+@media (max-width: 900px) { .mk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -2,7 +2,7 @@
 // The base has three tables: Owners, Leads (linked to Owners), Tasks (linked to Leads).
 // Every record carries the app's own id in the "ID" field, so links survive the round trip.
 import { SOURCES, STAGES } from './types'
-import type { Activity, Lead, Owner, Source, Stage, Task } from './types'
+import type { Activity, Lead, Owner, Place, Source, Stage, Task } from './types'
 
 export const AT_TABLES = { owners: 'Owners', leads: 'Leads', tasks: 'Tasks' } as const
 
@@ -25,6 +25,16 @@ export const F = {
   nextFollowUpAt: 'Next follow-up at',
   notes: 'Notes',
   activity: 'Activity log',
+  area: 'Area',
+  category: 'Category',
+  website: 'Website',
+  rating: 'Rating',
+  reviews: 'Reviews',
+  price: 'Price',
+  lat: 'Lat',
+  lng: 'Lng',
+  mapsUrl: 'Maps URL',
+  status: 'Status',
   // Tasks
   title: 'Title',
   lead: 'Lead',
@@ -51,6 +61,22 @@ const isoOrNull = (v: unknown): string | null => {
   const s = str(v)
   return s && !Number.isNaN(Date.parse(s)) ? new Date(Date.parse(s)).toISOString() : null
 }
+const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+const STATUSES: Place['status'][] = ['open', 'temporarily_closed', 'closed']
+
+/** Real place fields, present only on leads that came from Google Maps. */
+function readPlace(f: Record<string, unknown>): Place | undefined {
+  const keys = [F.area, F.category, F.website, F.rating, F.reviews, F.price, F.lat, F.lng, F.mapsUrl, F.status]
+  if (!keys.some((k) => f[k] != null && f[k] !== '')) return undefined
+  const status = f[F.status] as Place['status']
+  return {
+    area: str(f[F.area]), category: str(f[F.category]), website: str(f[F.website]),
+    rating: numOrNull(f[F.rating]), reviews: numOrNull(f[F.reviews]), price: str(f[F.price]),
+    lat: numOrNull(f[F.lat]), lng: numOrNull(f[F.lng]), mapsUrl: str(f[F.mapsUrl]),
+    status: STATUSES.includes(status) ? status : 'open',
+  }
+}
+
 const firstLink = (v: unknown): string | null => (Array.isArray(v) && typeof v[0] === 'string' ? v[0] : null)
 
 function parseActivity(v: unknown): Activity[] {
@@ -106,6 +132,7 @@ export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksR
       nextFollowUpAt: isoOrNull(f[F.nextFollowUpAt]),
       notes: str(f[F.notes]) ?? '',
       activityLog: parseActivity(f[F.activity]),
+      ...(readPlace(f) ? { place: readPlace(f) } : {}),
     })
     leadByRec.set(r.id, id)
   }
@@ -158,6 +185,12 @@ export function leadFields(l: Lead, ownerRecId: string | undefined) {
   if (l.lastContactAt) out[F.lastContactAt] = l.lastContactAt
   if (l.nextFollowUpAt) out[F.nextFollowUpAt] = l.nextFollowUpAt
   if (ownerRecId) out[F.owner] = [ownerRecId]
+  if (l.place) {
+    const p = l.place
+    const put = (k: string, v: unknown) => { if (v != null && v !== '') out[k] = v }
+    put(F.area, p.area); put(F.category, p.category); put(F.website, p.website); put(F.rating, p.rating); put(F.reviews, p.reviews)
+    put(F.price, p.price); put(F.lat, p.lat); put(F.lng, p.lng); put(F.mapsUrl, p.mapsUrl); put(F.status, p.status)
+  }
   return out
 }
 

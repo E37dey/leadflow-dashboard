@@ -73,33 +73,48 @@ describe('Airtable data source', () => {
   })
 })
 
-describe('real leads from Google Maps (Apify)', async () => {
-  const { placeToLead, rowsToPlaces, MAPS_OWNER } = await import('./maps')
-  const file = {
-    columns: ['placeId', 'title', 'category', 'address', 'phone', 'website', 'score', 'reviews', 'scrapedAt', 'search', 'area'],
-    rows: [
-      ['ChIJtest1', 'מסגריית בדיקה', 'רתך', 'התעשייה 1, עפולה', '+972 4-000-0000', null, 4.5, 2, '2026-11-12T14:53:33.827Z', 'מסגרייה', 'עפולה'],
-      ['ChIJtest2', '', null, null, null, null, null, null, '2026-11-12T14:53:33.827Z', 'מסגרייה', 'עפולה'],
-    ],
+describe('real places from Google Maps (Apify)', async () => {
+  const { apifyToLead, marketStats, MAPS_OWNER } = await import('./maps')
+  const item = {
+    placeId: 'ChIJtest1', title: 'מאפיית בדיקה', categoryName: 'מאפייה', address: 'דיזנגוף 1, תל אביב', city: 'תל אביב-יפו',
+    neighborhood: null, phone: '+972 3-000-0000', website: 'https://example.com', totalScore: 4.6, reviewsCount: 120,
+    price: null, location: { lat: 32.08, lng: 34.78 }, permanentlyClosed: false, temporarilyClosed: false,
+    scrapedAt: '2026-11-12T15:13:30.000Z', searchString: 'מאפייה',
   }
-  it('a place becomes a new lead: maps source, value 0 (not invented), owner o5', () => {
-    const [p] = rowsToPlaces(file)
-    const l = placeToLead(p)!
+  it('an Apify item becomes a lead with its real place data', () => {
+    const l = apifyToLead(item)!
     expect(l.id).toBe('M-ChIJtest1')
     expect(l.source).toBe('maps')
-    expect(l.stage).toBe('new')
-    expect(l.estimatedValueILS).toBe(0)
     expect(l.ownerId).toBe(MAPS_OWNER.id)
-    expect(l.lastContactAt).toBeNull()
-    expect(l.notes).toContain('google.com/maps')
+    expect(l.place).toMatchObject({ area: 'תל אביב-יפו', rating: 4.6, reviews: 120, price: null, lat: 32.08, status: 'open' })
   })
-  it('a place without a name is skipped', () => {
-    expect(placeToLead(rowsToPlaces(file)[1])).toBeNull()
+  it('nothing is invented: no reviews means no rating, missing fields stay null', () => {
+    const l = apifyToLead({ ...item, totalScore: 0, reviewsCount: 0, website: null, location: null })!
+    expect(l.place!.rating).toBeNull()
+    expect(l.place!.website).toBeNull()
+    expect(l.place!.lat).toBeNull()
   })
-  it('a real lead survives the Airtable round trip', () => {
-    const l = placeToLead(rowsToPlaces(file)[0])!
+  it('an item without a name or date is skipped', () => {
+    expect(apifyToLead({ ...item, title: '' })).toBeNull()
+    expect(apifyToLead({ ...item, scrapedAt: 'yesterday' })).toBeNull()
+  })
+  it('a real place survives the Airtable round trip', () => {
+    const l = apifyToLead(item)!
     const back = fromAirtable([{ id: 'recO5', fields: ownerFields(MAPS_OWNER) }], [{ id: 'recM1', fields: leadFields(l, 'recO5') }], [])
     expect(back.rejected).toEqual([])
     expect(back.leads[0]).toEqual(l)
+  })
+  it('market numbers are counts and averages of the real fields only', () => {
+    const a = apifyToLead(item)!
+    const b = apifyToLead({ ...item, placeId: 'ChIJtest2', totalScore: 4.0, reviewsCount: 10, city: 'רמת גן', website: null })!
+    const c = apifyToLead({ ...item, placeId: 'ChIJtest3', totalScore: 0, reviewsCount: 0, permanentlyClosed: true })!
+    const m = marketStats([a, b, c])
+    expect(m.total).toBe(3)
+    expect(m.rated).toBe(2)
+    expect(m.avgRating).toBeCloseTo(4.3, 5)
+    expect(m.reviews).toBe(130)
+    expect(m.withWebsite).toBe(2)
+    expect(m.closed).toBe(1)
+    expect(m.areas[0]).toMatchObject({ area: 'תל אביב-יפו', count: 2 })
   })
 })
