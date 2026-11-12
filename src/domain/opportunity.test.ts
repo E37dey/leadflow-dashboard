@@ -37,6 +37,12 @@ describe('opportunity score', () => {
     const volume = Math.log10(4) / Math.log10(1001)
     expect(o.score).toBe(Math.round(100 * (25 * volume + 15 + 15 + 15) / 70))
   })
+  it('not enough data: no reviews at all means no score, even with website and phone', () => {
+    const l = mk({ totalScore: null, reviewsCount: null, website: 'https://x.co.il', phone: '04-1', openingHours: [{ day: 'יום ראשון', hours: '7:00 to 14:00' }] })
+    const o = opportunity(l)
+    expect(o.score).toBeNull()
+    expect(o.coverage).toBeCloseTo(0.45)
+  })
   it('known zero still counts: no website and no phone pull the score down', () => {
     const full = opportunity(mk({ totalScore: 4.5, reviewsCount: 200, website: 'https://x.co.il', phone: '04-1' })).score!
     const bare = opportunity(mk({ totalScore: 4.5, reviewsCount: 200 })).score!

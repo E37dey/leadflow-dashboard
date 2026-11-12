@@ -27,7 +27,8 @@ export function OpportunityCard({ lead }: { lead: Lead }) {
           </li>
         ))}
       </ul>
-      {o.missing.length > 0 && <p className="faint small">לא נספר (חסר נתון, לא אפס): {o.missing.join(', ')}. המשקלים של השאר חולקו מחדש.</p>}
+      {o.score == null && <p className="small">אין מספיק נתונים לציון: יש נתונים רק ל-{Math.round(o.coverage * 100)}% מהמשקל, וצריך לפחות חצי.</p>}
+      {o.missing.length > 0 && <p className="faint small">לא נספר (חסר נתון, לא אפס): {o.missing.join(', ')}.{o.score != null ? ' המשקלים של השאר חולקו מחדש.' : ''}</p>}
       <button type="button" className="link-btn small" onClick={() => go('settings')}>שינוי המשקלים בהגדרות</button>
     </section>
   )
