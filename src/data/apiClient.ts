@@ -24,6 +24,8 @@ export interface ServerStatus {
   invalid?: string[]
   error?: { message: string; status: number | null; at: string } | null
   lastSuccessfulSyncAt?: string | null
+  /** Public hosting: the API only reads. */
+  readOnly?: boolean
 }
 
 export class ApiError extends Error {}

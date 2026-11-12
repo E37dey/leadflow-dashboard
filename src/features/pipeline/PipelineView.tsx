@@ -16,7 +16,7 @@ const MAX_CARDS = 8
 
 /** Six stage columns. Moving a lead works from the card menu (keyboard), drag and drop is extra. */
 export default function PipelineView() {
-  const { now, owners, openLead, dispatch, toast, leads, showLeads, ownerName, source, updateLeadRemote, weights, go } = useStore()
+  const { now, owners, openLead, dispatch, toast, leads, showLeads, ownerName, source, server, updateLeadRemote, weights, go } = useStore()
   const { filtered: all } = useDerived()
   // Real data: only bakeries the user added to the pipeline. Moves are written to Airtable.
   const live = source.kind === 'airtable'
@@ -29,6 +29,7 @@ export default function PipelineView() {
     setOver(null)
     if (!lead || lead.stage === to) return
     if (live) {
+      if (server?.readOnly) return toast('באתר הציבורי הצנרת לקריאה בלבד. שינוי שלב נשמר רק כשהדאשבורד רץ במחשב עם השרת.', { tone: 'error' })
       if (source.via !== 'server') return toast('כתיבה ל-Airtable רק דרך שרת ה-API (npm run dev).', { tone: 'error' })
       void updateLeadRemote(id, { stage: to }, `${lead.fullName} הועבר ל״${STAGE_LABEL[to]}״ ונשמר ב-Airtable`)
       return
@@ -42,7 +43,7 @@ export default function PipelineView() {
       <div className="page-head">
         <div>
           <h1>צנרת מכירה</h1>
-          <p className="page-sub">{live ? `${filtered.length} מאפיות בצנרת. גרירה בין שלבים נשמרת ב-Airtable. שווי מוצג רק אם הוזן.` : 'כל ליד בשלב הנוכחי שלו. העברה בין שלבים מתפריט הפעולות בכרטיס, או בגרירה.'}</p>
+          <p className="page-sub">{live ? `${filtered.length} מאפיות בצנרת. ${server?.readOnly ? 'לקריאה בלבד באתר הציבורי.' : 'גרירה בין שלבים נשמרת ב-Airtable.'} שווי מוצג רק אם הוזן.` : 'כל ליד בשלב הנוכחי שלו. העברה בין שלבים מתפריט הפעולות בכרטיס, או בגרירה.'}</p>
         </div>
       </div>
       {live && !filtered.length && (

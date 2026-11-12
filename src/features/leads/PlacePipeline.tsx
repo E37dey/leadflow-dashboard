@@ -35,8 +35,8 @@ export function OpportunityCard({ lead }: { lead: Lead }) {
 }
 
 export function PlacePipeline({ lead }: { lead: Lead }) {
-  const { source, updateLeadRemote, addActivity, airtableBusy } = useStore()
-  const live = source.kind === 'airtable' && source.via === 'server'
+  const { source, server, updateLeadRemote, addActivity, airtableBusy } = useStore()
+  const live = source.kind === 'airtable' && source.via === 'server' && !server?.readOnly
   const [form, setForm] = useState({
     stage: lead.stage,
     value: lead.estimatedValueILS ? String(lead.estimatedValueILS) : '',
@@ -49,7 +49,7 @@ export function PlacePipeline({ lead }: { lead: Lead }) {
     return (
       <section className="pc" aria-labelledby="pp-h">
         <h3 id="pp-h" className="sec-h">צנרת מכירה</h3>
-        <p className="muted small">{lead.inPipeline ? `בצנרת, שלב ${STAGE_LABEL[lead.stage]}.` : 'לא בצנרת.'} שינויים נשמרים ל-Airtable רק כשהדאשבורד רץ עם שרת ה-API (npm run dev).</p>
+        <p className="muted small">{lead.inPipeline ? `בצנרת, שלב ${STAGE_LABEL[lead.stage]}.` : 'לא בצנרת.'} {server?.readOnly ? 'באתר הציבורי הנתונים נקראים מ-Airtable, אבל לקריאה בלבד. שינויים נשמרים רק כשהדאשבורד רץ במחשב עם השרת.' : 'שינויים נשמרים ל-Airtable רק כשהדאשבורד רץ עם שרת ה-API (npm run dev).'}</p>
       </section>
     )
   }

@@ -144,7 +144,7 @@ function AirtableStatus() {
       <a href="#/settings" className="at-chip-main" title={source.kind === 'airtable' ? `${source.leads} רשומות · בסיס ${source.baseId}` : server?.error?.message ?? ''}>
         <span className="at-chip-dot" aria-hidden="true" />
         <CloudDownload size={15} aria-hidden="true" />
-        <span>{label}</span>
+        <span>{label}{viaServer && server?.readOnly ? ' · קריאה בלבד' : ''}</span>
         {synced && <span className="at-chip-time">סנכרון {new Date(synced).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' })}</span>}
       </a>
       {(viaServer || source.kind === 'airtable') && (
