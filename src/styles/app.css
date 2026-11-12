@@ -708,3 +708,29 @@ td.late { color: var(--late); }
 .op-score, .pc-rating b { white-space: nowrap; overflow-wrap: normal; flex: none; } .op-top span { flex: 1; min-width: 0; }
 .pc .mk-bar-track { background: color-mix(in oklab, var(--text) 10%, transparent); } .op-parts .mk-bar-fill { background: var(--violet); }
 @media (max-width: 560px) { .pl-filters { grid-template-columns: 1fr; } }
+/* quality vs popularity */
+.qs-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.qs-chips .chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; font-size: 12.5px; }
+.qs-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.qs-chart { height: 360px; }
+.qs-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; list-style: none; padding: 0; margin: 6px 0 0; }
+.qs-legend button { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid transparent; border-radius: 999px; padding: 3px 10px; color: var(--muted); font-size: 13px; cursor: pointer; }
+.qs-legend button[aria-pressed='true'], .qs-legend button:hover { border-color: var(--border-strong); color: var(--text); }
+.qs-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.qs-legend b { color: var(--text); }
+.qs-legend .faint { margin-inline-start: auto; }
+.qs-chart svg, .rg-chart svg { direction: ltr; }
+/* regions map */
+.rgm { width: 100%; height: auto; display: block; }
+.rgm-lat line { stroke: var(--border); stroke-dasharray: 2 6; }
+.rgm-lat text { fill: var(--faint); font-size: 9.5px; }
+.rgm-city { cursor: pointer; outline: none; transition: opacity 160ms; }
+.rgm-city:focus-visible rect { stroke-opacity: 1; stroke-width: 2; }
+.rgm-name { fill: var(--text); font-size: 12px; font-weight: 700; direction: rtl; unicode-bidi: plaintext; }
+.rgm-num { fill: var(--muted); font-size: 10.5px; direction: rtl; unicode-bidi: plaintext; }
+.rgm-legend { display: flex; flex-wrap: wrap; gap: 4px 8px; list-style: none; padding: 0; margin: 10px 0 6px; }
+.rgm-legend button { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid transparent; border-radius: 999px; padding: 3px 9px; color: var(--muted); font-size: 12.5px; cursor: pointer; }
+.rgm-legend button:hover, .rgm-legend button[aria-pressed='true'] { border-color: var(--border-strong); color: var(--text); }
+.rgm-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.rgm-legend b { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .rgm-city { transition: none; } }
