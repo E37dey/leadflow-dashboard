@@ -1,97 +1,212 @@
 // SPEC: "מקור נתונים: Airtable". The overview when the data is real (Google Maps places loaded from Airtable).
-// Every number here is a count, sum or average of real fields. Unknown values are shown as unknown, never as 0.
+// Every number here is a count, sum, share or average of real fields. Unknown values are shown as unknown, never as 0.
 import { useMemo } from 'react'
-import { BarChart3, ExternalLink, Globe, MapPin, MessageSquare, Star, Store, Tags } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import type { CSSProperties, ReactNode } from 'react'
+import { BadgeCheck, Clock3, Copy, Database, ExternalLink, GitBranch, Globe, MapPin, MessageSquare, Phone, ShieldCheck, Star, Store, Tags, Target } from 'lucide-react'
+import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts'
 import { Panel } from '../../components/ui/ui'
 import { fmt } from '../../components/ui/format'
 import { marketStats } from '../../domain/maps'
+import { DAY_SHORT, RECORD_CLASS_LABEL, openGrid } from '../../domain/quality'
 import type { Lead } from '../../domain/types'
 import { useDerived } from '../../store/derived'
 import { useStore } from '../../store/store'
 
-const AREA_COLORS = ['var(--violet)', 'var(--aqua)', 'color-mix(in oklab, var(--violet) 45%, var(--text))', 'color-mix(in oklab, var(--aqua) 45%, var(--text))']
+const AREA_COLORS = ['var(--violet)', 'var(--aqua)', '#f0b44c', '#ef7aa5', 'color-mix(in oklab, var(--text) 55%, transparent)']
+const STAR_COLORS = ['#3fd29b', '#9bd36a', '#f0c24c', '#f08f4c', '#ef5f6b']
+const STAR_LABELS = ['5★', '4★', '3★', '2★', '1★']
+const pct = (r: number) => `${Math.round(r * 100)}%`
 const rating = (r: number | null) => (r == null ? 'אין דירוג' : r.toFixed(1))
+const HOURS = Array.from({ length: 19 }, (_, i) => i + 5) // 05:00 to 23:00
 
 export function MarketOverview() {
   const { source, openLead } = useStore()
   const { filtered } = useDerived()
   const m = useMemo(() => marketStats(filtered), [filtered])
-  const areaColor = (a: string | null) => AREA_COLORS[Math.max(0, m.areas.findIndex((x) => x.area === (a ?? 'לא ידוע'))) % AREA_COLORS.length]
-  const loaded = source.kind === 'airtable' ? fmt.date(source.loadedAt) + ' ' + fmt.time(source.loadedAt) : ''
+  const hours = useMemo(() => openGrid(filtered), [filtered])
+  const areaColor = (a: string | null) => {
+    const i = Math.max(0, m.areas.findIndex((x) => x.area === (a ?? 'לא ידוע')))
+    return AREA_COLORS[Math.min(i, AREA_COLORS.length - 1)]
+  }
+  const loaded = source.kind === 'airtable' ? `${fmt.date(source.loadedAt)} ${fmt.time(source.loadedAt)}` : ''
+  const starTotal = m.stars.reduce((s, v) => s + v, 0)
+
+  // Facts read off the opening-hours grid (computed, not written by hand).
+  const maxOpen = Math.max(1, ...hours.grid.flat())
+  const satOpen = Math.max(...hours.grid[6])
+  const friAt15 = hours.grid[5][15], thuAt15 = hours.grid[4][15]
+  let peak = { d: 0, h: 0, v: -1 }
+  hours.grid.forEach((row, d) => row.forEach((v, h) => { if (v > peak.v) peak = { d, h, v } }))
 
   return (
-    <div className="page">
+    <div className="page mk">
       <div className="page-head">
         <div>
-          <p className="page-label">נתונים חיים מ-Airtable · מקור: Google Maps דרך Apify</p>
+          <p className="page-label mk-live"><span className="mk-pulse" aria-hidden="true" />נתונים חיים מ-Airtable · עודכן {loaded}</p>
           <h1>שוק המאפיות</h1>
-          <p className="page-sub">{fmt.num(m.total)} מאפיות אמיתיות. כל מספר כאן מחושב מהשדות שנטענו מ-Airtable. נטען ב-{loaded}.</p>
+          <p className="page-sub">{fmt.num(m.total)} מאפיות אמיתיות מ-Google Maps בתל אביב, רמת גן והרצליה. כל מספר במסך מחושב מהשדות שבבסיס.</p>
         </div>
       </div>
 
       <div className="grid-12">
-        <section className="card span-12 mk-kpis" aria-label="מדדים">
-          <Kpi icon={<Store size={18} />} label="מאפיות" value={fmt.num(m.total)} note={`${m.areas.length} אזורים`} />
-          <Kpi icon={<Star size={18} />} label="דירוג ממוצע" value={m.avgRating == null ? 'אין' : m.avgRating.toFixed(2)} note={`מתוך ${fmt.num(m.rated)} עם דירוג`} />
-          <Kpi icon={<MessageSquare size={18} />} label="ביקורות בגוגל" value={fmt.num(m.reviews)} note="סך הכול" />
-          <Kpi icon={<Globe size={18} />} label="עם אתר" value={fmt.num(m.withWebsite)} note={m.total ? `${Math.round((100 * m.withWebsite) / m.total)}%` : ''} />
-          <Kpi icon={<MapPin size={18} />} label="סגורות" value={fmt.num(m.closed)} note="זמנית או לצמיתות" />
+        <section className="card span-12 mk-flow" aria-label="מסלול הנתונים">
+          <FlowStep icon={<MapPin size={18} />} title="Google Maps" value="מקור" sub="עסקים ציבוריים" />
+          <FlowStep icon={<Database size={18} />} title="Apify" value={fmt.num(m.total)} sub="מקומות נאספו" />
+          <FlowStep icon={<ShieldCheck size={18} />} title="ניקוי וסיווג" value={fmt.num(m.classes.suspected_duplicate)} sub="כפילויות חשודות סומנו" tone="warn" />
+          <FlowStep icon={<Database size={18} />} title="Airtable" value={fmt.num(m.total)} sub="רשומות בבסיס" />
+          <FlowStep icon={<BadgeCheck size={18} />} title="LEADFLOW" value={fmt.num(m.classes.unique + m.classes.branch)} sub="עסקים נקיים במסך" tone="ok" />
         </section>
 
-        <Panel id="mk-area" title="לפי אזור" icon={<MapPin size={18} aria-hidden="true" />} className="span-6">
-          <ul className="mk-bars" aria-label={`מאפיות לפי אזור: ${m.areas.map((a) => `${a.area} ${a.count}`).join(', ')}`}>
+        <section className="card span-12 mk-kpis" aria-label="מדדים">
+          <Kpi icon={<Store size={18} />} label="מאפיות" value={fmt.num(m.total)} note={`${m.areas.length} אזורים · ${fmt.num(m.chains.length)} רשתות`} />
+          <Kpi icon={<Star size={18} />} label="דירוג ממוצע" value={m.avgRating == null ? 'אין' : m.avgRating.toFixed(2)} note={`מתוך ${fmt.num(m.rated)} עם דירוג`}>
+            <StarRow value={m.avgRating ?? 0} />
+          </Kpi>
+          <Kpi icon={<MessageSquare size={18} />} label="ביקורות בגוגל" value={fmt.num(m.reviews)} note={`חציון ${fmt.num(m.medianReviews)} למאפייה`} />
+          <Ring label="עם טלפון" icon={<Phone size={14} />} share={m.withPhone / (m.total || 1)} />
+          <Ring label="עם אתר" icon={<Globe size={14} />} share={m.withWebsite / (m.total || 1)} />
+          <Ring label="עם שעות" icon={<Clock3 size={14} />} share={hours.withHours / (m.total || 1)} />
+        </section>
+
+        <Panel id="mk-quad" title="איכות מול פופולריות" icon={<Target size={18} aria-hidden="true" />} className="span-8">
+          <div className="mk-scatter" role="img" aria-label={`פיזור ${m.scatter.length} מאפיות לפי דירוג ומספר ביקורות`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 10, right: 16, bottom: 18, left: 4 }}>
+                <CartesianGrid stroke="var(--border)" />
+                <XAxis type="number" dataKey="reviews" scale="log" domain={[1, 'auto']} allowDataOverflow tick={{ fill: 'var(--muted)', fontSize: 11 }} tickFormatter={(v) => fmt.num(v)} label={{ value: 'מספר ביקורות (סקאלה לוגריתמית)', position: 'insideBottom', offset: -10, fill: 'var(--faint)', fontSize: 11 }} />
+                <YAxis type="number" dataKey="rating" domain={[3, 5]} tick={{ fill: 'var(--muted)', fontSize: 11 }} width={34} label={{ value: 'דירוג', angle: -90, position: 'insideLeft', fill: 'var(--faint)', fontSize: 11 }} />
+                <ZAxis range={[36, 36]} />
+                <ReferenceLine y={4.5} stroke="var(--aqua)" strokeDasharray="4 4" />
+                <ReferenceLine x={Math.max(1, m.medianReviews)} stroke="var(--aqua)" strokeDasharray="4 4" />
+                <Tooltip cursor={false} content={({ payload }) => {
+                  const p = payload?.[0]?.payload as (typeof m.scatter)[number] | undefined
+                  return p ? <div className="mk-tip"><b>{p.name}</b><span>{p.area} · {p.rating.toFixed(1)} · {fmt.num(p.reviews)} ביקורות</span></div> : null
+                }} />
+                {m.areas.map((a) => (
+                  <Scatter key={a.area} name={a.area} data={m.scatter.filter((s) => (s.area ?? 'לא ידוע') === a.area)} fill={areaColor(a.area)} fillOpacity={0.7}
+                    onClick={(d) => openLead((d as unknown as { id: string }).id)} />
+                ))}
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+          <Legend areas={m.areas.map((a) => a.area)} color={areaColor} />
+        </Panel>
+        <Panel id="mk-quad-cards" title="ארבעה רבעים" icon={<Target size={18} aria-hidden="true" />} className="span-4">
+          <div className="mk-quads">
+            <Quad title="כוכבים" desc={`דירוג 4.5+ ולפחות ${fmt.num(m.medianReviews)} ביקורות`} n={m.quadrants.stars} tone="ok" />
+            <Quad title="יהלומים נסתרים" desc="דירוג 4.5+, מעט ביקורות" n={m.quadrants.hidden} tone="aqua" />
+            <Quad title="פופולריות, דירוג נמוך" desc="הרבה ביקורות, דירוג מתחת ל-4.5" n={m.quadrants.crowded} tone="warn" />
+            <Quad title="שקטות" desc="מעט ביקורות, דירוג מתחת ל-4.5" n={m.quadrants.weak} tone="muted" />
+          </div>
+          <p className="faint small">הקווים: דירוג 4.5 וחציון הביקורות ({fmt.num(m.medianReviews)}). כלל קבוע, לא חיזוי.</p>
+        </Panel>
+
+        <Panel id="mk-stars" title="מה הלקוחות נותנים" icon={<Star size={18} aria-hidden="true" />} className="span-6">
+          <p className="mk-big">{fmt.num(starTotal)} <span>ביקורות עם פירוט כוכבים</span></p>
+          <StackBar values={m.stars} />
+          <ul className="mk-starlegend">
+            {m.stars.map((v, i) => <li key={i}><i style={{ background: STAR_COLORS[i] }} />{5 - i} כוכבים <b>{starTotal ? pct(v / starTotal) : '0%'}</b></li>)}
+          </ul>
+          <div className="mk-area-stars">
+            {m.areas.filter((a) => a.stars.some((v) => v)).slice(0, 4).map((a) => (
+              <div key={a.area}><span>{a.area}</span><StackBar values={a.stars} thin /></div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel id="mk-hours" title="מתי המאפיות פתוחות" icon={<Clock3 size={18} aria-hidden="true" />} className="span-6">
+          <div className="mk-heat" role="table" aria-label="מספר מאפיות פתוחות לפי יום ושעה">
+            <div className="mk-heat-row mk-heat-head" role="row"><span />{HOURS.map((h) => <span key={h} role="columnheader">{h % 3 === 0 ? h : ''}</span>)}</div>
+            {DAY_SHORT.map((d, di) => (
+              <div key={d} className="mk-heat-row" role="row">
+                <span role="rowheader">{d}</span>
+                {HOURS.map((h) => {
+                  const v = hours.grid[di][h]
+                  return <span key={h} role="cell" className="mk-cell" style={{ background: v ? `color-mix(in oklab, var(--violet) ${Math.round(15 + 85 * (v / maxOpen))}%, transparent)` : 'var(--surface-2)' }} title={`${d} ${h}:00 · ${v} פתוחות`} />
+                })}
+              </div>
+            ))}
+          </div>
+          <ul className="mk-facts">
+            <li>בשיא: <b>{peak.v}</b> מאפיות פתוחות ביום {DAY_SHORT[peak.d]} ב-{peak.h}:00.</li>
+            <li>בשישי ב-15:00 פתוחות <b>{friAt15}</b>, לעומת <b>{thuAt15}</b> בחמישי באותה שעה.</li>
+            <li>בשבת פתוחות לכל היותר <b>{satOpen}</b> מתוך {fmt.num(hours.withHours)} עם שעות.</li>
+          </ul>
+        </Panel>
+
+        <Panel id="mk-map" title="מפת מיקומים" icon={<MapPin size={18} aria-hidden="true" />} className="span-8">
+          <PlaceMap leads={filtered} color={areaColor} onPick={openLead} areas={m.areas.map((a) => a.area)} />
+          <p className="faint small">קואורדינטות אמיתיות מ-Google Maps. גודל הנקודה לפי מספר הביקורות, טבעת = סניף של רשת, שקופה = כפילות חשודה.</p>
+        </Panel>
+        <Panel id="mk-area" title="לפי אזור" icon={<MapPin size={18} aria-hidden="true" />} className="span-4">
+          <ul className="mk-bars">
             {m.areas.map((a) => (
               <li key={a.area}>
                 <span className="mk-bar-label">{a.area}</span>
                 <span className="mk-bar-track"><span className="mk-bar-fill" style={{ width: `${(100 * a.count) / (m.areas[0]?.count || 1)}%`, background: areaColor(a.area) }} /></span>
                 <span className="mk-bar-num">{fmt.num(a.count)}</span>
-                <span className="mk-bar-note">דירוג ממוצע {rating(a.avgRating)} · {fmt.num(a.reviews)} ביקורות</span>
+                <span className="mk-bar-note">★ {rating(a.avgRating)} · {fmt.num(a.reviews)} ביקורות</span>
               </li>
             ))}
           </ul>
         </Panel>
 
-        <Panel id="mk-rating" title="התפלגות דירוגים" icon={<BarChart3 size={18} aria-hidden="true" />} className="span-6">
-          <div className="mk-chart" role="img" aria-label={`התפלגות דירוגים: ${m.ratingBuckets.map((b) => `${b.label} ${b.count}`).join(', ')}`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={m.ratingBuckets} margin={{ top: 10, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="var(--border)" />
-                <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} width={30} label={{ value: 'מאפיות', angle: -90, position: 'insideLeft', fill: 'var(--faint)', fontSize: 11 }} />
-                <Tooltip cursor={{ fill: 'color-mix(in oklab, var(--violet) 10%, transparent)' }} contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: 10, direction: 'rtl' }} formatter={(v) => [`${v} מאפיות`, '']} />
-                <Bar dataKey="count" fill="var(--violet)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="faint small">רק מאפיות עם ביקורות. {fmt.num(m.total - m.rated)} בלי ביקורות לא נכנסות לממוצע.</p>
+        <Panel id="mk-chains" title="רשתות וסניפים" icon={<GitBranch size={18} aria-hidden="true" />} className="span-6">
+          {m.chains.length ? (
+            <ul className="mk-chains">
+              {m.chains.slice(0, 8).map((c) => (
+                <li key={c.brand}>
+                  <span className="mk-chain-dots" aria-hidden="true">{Array.from({ length: c.branches }, (_, i) => <i key={i} />)}</span>
+                  <span className="mk-chain-name"><b>{c.name}</b><small dir="ltr">{c.brand}</small></span>
+                  <span className="mk-chain-num">{c.branches} סניפים · {fmt.num(c.reviews)} ביקורות</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="muted">לא נמצאו רשתות בנתונים.</p>}
+          <p className="faint small">רשת = אותו אתר (דומיין), או אותו שם אחרי ניקוי, בשני מקומות או יותר שאינם כפילות.</p>
         </Panel>
-
-        <Panel id="mk-map" title="מפת מיקומים" icon={<MapPin size={18} aria-hidden="true" />} className="span-8">
-          <PlaceMap leads={filtered} color={areaColor} onPick={openLead} />
-          <p className="faint small">מיקום אמיתי מ-Google Maps. גודל הנקודה לפי מספר הביקורות. בלי רקע מפה, כדי לא לשלוח בקשות לשירות נוסף.</p>
+        <Panel id="mk-quality" title="איכות הנתונים ומניעת כפילויות" icon={<ShieldCheck size={18} aria-hidden="true" />} className="span-6">
+          <div className="mk-classes">
+            {(['unique', 'branch', 'suspected_duplicate'] as const).map((k) => (
+              <div key={k} className={`mk-class mk-class-${k}`}>
+                <b>{fmt.num(m.classes[k])}</b>
+                <span>{RECORD_CLASS_LABEL[k]}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mk-complete">
+            {m.completeness.map((c) => (
+              <div key={c.field}><span>{c.field}</span><span className="mk-bar-track"><span className="mk-bar-fill" style={{ width: pct(c.share), background: c.share > 0.8 ? 'var(--aqua)' : c.share > 0.4 ? 'var(--violet)' : '#f0b44c' }} /></span><b>{pct(c.share)}</b></div>
+            ))}
+          </div>
+          {m.duplicates.length > 0 && (
+            <details className="mk-dups">
+              <summary><Copy size={14} aria-hidden="true" /> {m.duplicates.length} כפילויות חשודות, והסיבה</summary>
+              <ul>{m.duplicates.map((l) => <li key={l.id}><button type="button" className="link-btn" onClick={() => openLead(l.id)}>{l.fullName}</button> <span className="faint">← {l.place!.duplicateOf}</span></li>)}</ul>
+            </details>
+          )}
+          <p className="faint small">כפילות חשודה = עד 100 מטר ממקום אחר, וגם אותו מותג, אותו טלפון או שם דומה. הרשומה עם פחות ביקורות מסומנת. כפילות מדויקת (אותו מזהה גוגל) לא נכנסת לבסיס בכלל.</p>
         </Panel>
 
         <Panel id="mk-cat" title="קטגוריות בגוגל" icon={<Tags size={18} aria-hidden="true" />} className="span-4">
-          <ul className="mk-cats">
-            {m.categories.slice(0, 8).map((c) => (
-              <li key={c.category}><span>{c.category}</span><b>{fmt.num(c.count)}</b></li>
-            ))}
-          </ul>
+          <div className="mk-tags">
+            {m.categories.slice(0, 14).map((c) => <span key={c.category} style={{ fontSize: `${12 + Math.min(10, (10 * c.count) / (m.categories[0]?.count || 1))}px` }}>{c.category} <b>{c.count}</b></span>)}
+          </div>
+          <p className="faint small">לכל מאפייה יכולות להיות כמה קטגוריות.</p>
         </Panel>
-
-        <Panel id="mk-top" title="הכי הרבה ביקורות" icon={<MessageSquare size={18} aria-hidden="true" />} className="span-12">
-          <div className="tbl-scroll" role="region" aria-label="הכי הרבה ביקורות" tabIndex={0}>
+        <Panel id="mk-top" title="10 עם הכי הרבה ביקורות" icon={<MessageSquare size={18} aria-hidden="true" />} className="span-8">
+          <div className="tbl-scroll" role="region" aria-label="10 עם הכי הרבה ביקורות" tabIndex={0}>
             <table className="tbl">
-              <thead><tr><th>מאפייה</th><th>אזור</th><th>דירוג</th><th>ביקורות</th><th>אתר</th><th>Google Maps</th></tr></thead>
+              <thead><tr><th>#</th><th>מאפייה</th><th>אזור</th><th>דירוג</th><th>ביקורות</th><th>פירוט כוכבים</th><th>מפה</th></tr></thead>
               <tbody>
-                {m.mostReviewed.map((l) => (
+                {m.mostReviewed.map((l, i) => (
                   <tr key={l.id}>
-                    <td><button type="button" className="link-btn" onClick={() => openLead(l.id)}>{l.fullName}</button></td>
+                    <td className="faint">{i + 1}</td>
+                    <td><button type="button" className="link-btn" onClick={() => openLead(l.id)}>{l.fullName}</button>{l.place!.recordClass === 'branch' && <span className="mk-chip">רשת</span>}</td>
                     <td>{l.place!.area ?? 'לא ידוע'}</td>
-                    <td>{rating(l.place!.rating)}</td>
+                    <td>★ {rating(l.place!.rating)}</td>
                     <td>{fmt.num(l.place!.reviews ?? 0)}</td>
-                    <td>{l.place!.website ? <a href={l.place!.website} target="_blank" rel="noreferrer">יש</a> : 'אין'}</td>
+                    <td style={{ minWidth: 120 }}>{l.place!.stars ? <StackBar values={l.place!.stars} thin /> : 'לא ידוע'}</td>
                     <td>{l.place!.mapsUrl && <a href={l.place!.mapsUrl} target="_blank" rel="noreferrer" aria-label={`פתיחה ב-Google Maps: ${l.fullName}`}><ExternalLink size={15} aria-hidden="true" /></a>}</td>
                   </tr>
                 ))}
@@ -104,37 +219,99 @@ export function MarketOverview() {
   )
 }
 
-function Kpi({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
+function FlowStep({ icon, title, value, sub, tone }: { icon: ReactNode; title: string; value: string; sub: string; tone?: 'ok' | 'warn' }) {
+  return (
+    <div className={`mk-step ${tone ? `mk-step-${tone}` : ''}`}>
+      <span className="mk-step-icon">{icon}</span>
+      <span className="mk-step-title">{title}</span>
+      <b>{value}</b>
+      <small>{sub}</small>
+    </div>
+  )
+}
+
+function Kpi({ icon, label, value, note, children }: { icon: ReactNode; label: string; value: string; note: string; children?: ReactNode }) {
   return (
     <div className="mk-kpi">
       <span className="mk-kpi-label">{icon}{label}</span>
       <b className="mk-kpi-value">{value}</b>
+      {children}
       <span className="faint small">{note}</span>
     </div>
   )
 }
 
-/** Plain SVG scatter of the real coordinates (equirectangular, fine at city scale). */
-function PlaceMap({ leads, color, onPick }: { leads: Lead[]; color: (area: string | null) => string; onPick: (id: string) => void }) {
+function Ring({ label, icon, share }: { label: string; icon: ReactNode; share: number }) {
+  const r = 26, c = 2 * Math.PI * r
+  return (
+    <div className="mk-kpi mk-ring">
+      <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border)" strokeWidth="7" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke="var(--aqua)" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * share} ${c}`} transform="rotate(-90 32 32)" />
+      </svg>
+      <div><b className="mk-kpi-value">{pct(share)}</b><span className="mk-kpi-label">{icon}{label}</span></div>
+    </div>
+  )
+}
+
+function StarRow({ value }: { value: number }) {
+  return (
+    <span className="mk-stars" aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((i) => <span key={i} style={{ '--fill': `${Math.max(0, Math.min(1, value - i)) * 100}%` } as CSSProperties}>★</span>)}
+    </span>
+  )
+}
+
+function StackBar({ values, thin }: { values: number[]; thin?: boolean }) {
+  const t = values.reduce((s, v) => s + v, 0) || 1
+  return (
+    <span className={`mk-stack ${thin ? 'thin' : ''}`} role="img" aria-label={values.map((v, i) => `${STAR_LABELS[i]} ${Math.round((100 * v) / t)}%`).join(', ')}>
+      {values.map((v, i) => (v ? <i key={i} style={{ width: `${(100 * v) / t}%`, background: STAR_COLORS[i] }} title={`${STAR_LABELS[i]}: ${fmt.num(v)}`} /> : null))}
+    </span>
+  )
+}
+
+function Quad({ title, desc, n, tone }: { title: string; desc: string; n: number; tone: string }) {
+  return <div className={`mk-quad mk-quad-${tone}`}><b>{n}</b><span>{title}</span><small>{desc}</small></div>
+}
+
+function Legend({ areas, color }: { areas: string[]; color: (a: string) => string }) {
+  return <ul className="mk-legend">{areas.map((a) => <li key={a}><i style={{ background: color(a) }} />{a}</li>)}</ul>
+}
+
+/** Plain SVG scatter of the real coordinates (equirectangular, fine at city scale), with area labels. */
+function PlaceMap({ leads, color, onPick, areas }: { leads: Lead[]; color: (area: string | null) => string; onPick: (id: string) => void; areas: string[] }) {
   const pts = leads.filter((l) => l.place?.lat != null && l.place?.lng != null)
   if (!pts.length) return <p className="muted">אין מיקומים בנתונים.</p>
   const lats = pts.map((l) => l.place!.lat!), lngs = pts.map((l) => l.place!.lng!)
   const [minLat, maxLat, minLng, maxLng] = [Math.min(...lats), Math.max(...lats), Math.min(...lngs), Math.max(...lngs)]
-  const W = 600, H = 420, pad = 18
+  const W = 760, H = 460, pad = 26
   const kx = Math.cos(((minLat + maxLat) / 2) * (Math.PI / 180))
   const spanX = (maxLng - minLng) * kx || 0.01, spanY = maxLat - minLat || 0.01
   const s = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanY)
   const x = (lng: number) => W - pad - (W - 2 * pad - spanX * s) / 2 - (maxLng - lng) * kx * s
   const y = (lat: number) => pad + (H - 2 * pad - spanY * s) / 2 + (maxLat - lat) * s
   const maxRev = Math.max(1, ...pts.map((l) => l.place!.reviews ?? 0))
+  const labels = areas.map((a) => {
+    const ps = pts.filter((l) => (l.place!.area ?? 'לא ידוע') === a)
+    if (ps.length < 5) return null
+    return { a, x: ps.reduce((t, l) => t + x(l.place!.lng!), 0) / ps.length, y: Math.min(...ps.map((l) => y(l.place!.lat!))) - 10, n: ps.length }
+  }).filter(Boolean) as { a: string; x: number; y: number; n: number }[]
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="mk-map" role="img" aria-label={`${pts.length} מאפיות לפי מיקום`}>
+      <defs>
+        <pattern id="mk-grid" width="38" height="38" patternUnits="userSpaceOnUse"><path d="M38 0H0V38" fill="none" stroke="var(--border)" strokeWidth="0.6" /></pattern>
+      </defs>
+      <rect width={W} height={H} fill="url(#mk-grid)" />
       {[...pts].sort((a, b) => (b.place!.reviews ?? 0) - (a.place!.reviews ?? 0)).map((l) => (
-        <circle key={l.id} cx={x(l.place!.lng!)} cy={y(l.place!.lat!)} r={3 + 11 * Math.sqrt((l.place!.reviews ?? 0) / maxRev)}
-          fill={color(l.place!.area)} fillOpacity={0.55} stroke="var(--bg)" strokeWidth={1} onClick={() => onPick(l.id)} style={{ cursor: 'pointer' }}>
-          <title>{`${l.fullName} · ${l.place!.area ?? ''} · ${rating(l.place!.rating)} · ${l.place!.reviews ?? 0} ביקורות`}</title>
+        <circle key={l.id} cx={x(l.place!.lng!)} cy={y(l.place!.lat!)} r={3 + 13 * Math.sqrt((l.place!.reviews ?? 0) / maxRev)}
+          fill={color(l.place!.area)} fillOpacity={l.place!.recordClass === 'suspected_duplicate' ? 0.2 : 0.6}
+          stroke={l.place!.recordClass === 'branch' ? 'var(--text)' : 'var(--bg)'} strokeWidth={l.place!.recordClass === 'branch' ? 1.4 : 0.8}
+          onClick={() => onPick(l.id)} style={{ cursor: 'pointer' }}>
+          <title>{`${l.fullName} · ${l.place!.area ?? ''} · ★ ${rating(l.place!.rating)} · ${l.place!.reviews ?? 0} ביקורות`}</title>
         </circle>
       ))}
+      {labels.map((t) => <text key={t.a} x={t.x} y={Math.max(14, t.y)} textAnchor="middle" className="mk-map-label">{t.a} · {t.n}</text>)}
     </svg>
   )
 }

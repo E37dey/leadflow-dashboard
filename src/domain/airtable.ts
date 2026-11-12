@@ -35,6 +35,13 @@ export const F = {
   lng: 'Lng',
   mapsUrl: 'Maps URL',
   status: 'Status',
+  stars: ['Stars 5', 'Stars 4', 'Stars 3', 'Stars 2', 'Stars 1'] as const,
+  hours: 'Hours',
+  categories: 'Categories',
+  images: 'Images',
+  brand: 'Brand',
+  recordClass: 'Record class',
+  duplicateOf: 'Duplicate of',
   // Tasks
   title: 'Title',
   lead: 'Lead',
@@ -63,10 +70,21 @@ const isoOrNull = (v: unknown): string | null => {
 }
 const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const STATUSES: Place['status'][] = ['open', 'temporarily_closed', 'closed']
+const CLASSES: Place['recordClass'][] = ['unique', 'branch', 'suspected_duplicate']
+function parseHoursField(v: unknown): Place['hours'] {
+  const s = str(v)
+  if (!s) return null
+  try {
+    const a = JSON.parse(s)
+    return Array.isArray(a) ? a.filter((h) => h && typeof h.day === 'string' && typeof h.hours === 'string') : null
+  } catch {
+    return null
+  }
+}
 
 /** Real place fields, present only on leads that came from Google Maps. */
 function readPlace(f: Record<string, unknown>): Place | undefined {
-  const keys = [F.area, F.category, F.website, F.rating, F.reviews, F.price, F.lat, F.lng, F.mapsUrl, F.status]
+  const keys = [F.area, F.category, F.website, F.rating, F.reviews, F.price, F.lat, F.lng, F.mapsUrl, F.status, F.recordClass]
   if (!keys.some((k) => f[k] != null && f[k] !== '')) return undefined
   const status = f[F.status] as Place['status']
   return {
@@ -74,6 +92,13 @@ function readPlace(f: Record<string, unknown>): Place | undefined {
     rating: numOrNull(f[F.rating]), reviews: numOrNull(f[F.reviews]), price: str(f[F.price]),
     lat: numOrNull(f[F.lat]), lng: numOrNull(f[F.lng]), mapsUrl: str(f[F.mapsUrl]),
     status: STATUSES.includes(status) ? status : 'open',
+    stars: F.stars.some((k) => typeof f[k] === 'number') ? (F.stars.map((k) => numOrNull(f[k]) ?? 0) as [number, number, number, number, number]) : null,
+    hours: parseHoursField(f[F.hours]),
+    categories: (str(f[F.categories]) ?? '').split(',').map((c) => c.trim()).filter(Boolean),
+    images: numOrNull(f[F.images]),
+    brand: str(f[F.brand]),
+    recordClass: CLASSES.includes(f[F.recordClass] as Place['recordClass']) ? (f[F.recordClass] as Place['recordClass']) : 'unique',
+    duplicateOf: str(f[F.duplicateOf]),
   }
 }
 
@@ -190,6 +215,10 @@ export function leadFields(l: Lead, ownerRecId: string | undefined) {
     const put = (k: string, v: unknown) => { if (v != null && v !== '') out[k] = v }
     put(F.area, p.area); put(F.category, p.category); put(F.website, p.website); put(F.rating, p.rating); put(F.reviews, p.reviews)
     put(F.price, p.price); put(F.lat, p.lat); put(F.lng, p.lng); put(F.mapsUrl, p.mapsUrl); put(F.status, p.status)
+    if (p.stars) F.stars.forEach((k, i) => put(k, p.stars![i]))
+    if (p.hours) put(F.hours, JSON.stringify(p.hours))
+    if (p.categories.length) put(F.categories, p.categories.join(', '))
+    put(F.images, p.images); put(F.brand, p.brand); put(F.recordClass, p.recordClass); put(F.duplicateOf, p.duplicateOf)
   }
   return out
 }

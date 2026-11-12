@@ -83,11 +83,19 @@ try {
   if (items.length !== leads.length + dupes + skipped) throw new Error('count mismatch')
   if (leads.length > 950) throw new Error('over the free plan (1,000 records per base)')
 
-  // 3) write
-  const ownerRec = await upsert('Owners', [atm.ownerFields(maps.MAPS_OWNER)])
-  await upsert('Leads', leads.map((l) => atm.leadFields(l, ownerRec[l.ownerId])))
+  // 3) classify: unique / branch of a chain / suspected duplicate (fixed rules in src/domain/quality.ts)
+  const quality = await vite.ssrLoadModule('/src/domain/quality.ts')
+  const classified = quality.classifyPlaces(leads)
+  const cls = {}
+  for (const l of classified) cls[l.place.recordClass] = (cls[l.place.recordClass] ?? 0) + 1
+  console.log('  classes', JSON.stringify(cls))
+  for (const l of classified) if (l.place.recordClass === 'suspected_duplicate') console.log('    duplicate?', l.fullName, '->', l.place.duplicateOf)
 
-  // 4) sync: remove Google Maps leads that are not in the source anymore
+  // 4) write
+  const ownerRec = await upsert('Owners', [atm.ownerFields(maps.MAPS_OWNER)])
+  await upsert('Leads', classified.map((l) => atm.leadFields(l, ownerRec[l.ownerId])))
+
+  // 5) sync: remove Google Maps leads that are not in the source anymore
   if (REPLACE) {
     const stale = (await allIds('Leads')).filter((r) => typeof r.id === 'string' && r.id.startsWith('M-') && !seen.has(r.id))
     for (let i = 0; i < stale.length; i += 10) {

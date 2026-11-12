@@ -43,6 +43,15 @@ export interface Place {
   lng: number | null
   mapsUrl: string | null
   status: 'open' | 'temporarily_closed' | 'closed'
+  /** Review counts by stars: [5, 4, 3, 2, 1]. */
+  stars: [number, number, number, number, number] | null
+  hours: { day: string; hours: string }[] | null
+  categories: string[]
+  images: number | null
+  /** Derived at import by fixed rules (domain/quality.ts). */
+  brand: string | null
+  recordClass: 'unique' | 'branch' | 'suspected_duplicate'
+  duplicateOf: string | null
 }
 
 export interface Lead {
