@@ -14,7 +14,7 @@ const NAV: { view: View; label: string; icon: typeof Home }[] = [
   { view: 'insights', label: 'תובנות', icon: BarChart3 },
 ]
 
-function Logo() {
+export function Logo() {
   return (
     <span className="logo" aria-label="LEADFLOW">
       <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">

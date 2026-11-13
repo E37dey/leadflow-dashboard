@@ -16,15 +16,26 @@ const SettingsView = lazy(() => import('./features/settings/SettingsView'))
 const LeadDrawer = lazy(() => import('./features/leads/LeadDrawer'))
 const NewLeadDialog = lazy(() => import('./features/leads/NewLeadDialog'))
 const Assistant = lazy(() => import('./features/insights/Assistant'))
+const ConnectGate = lazy(() => import('./features/connect/ConnectGate'))
 
 export default function App() {
-  const { view, openLeadId, newLeadOpen } = useStore()
+  const { view, openLeadId, newLeadOpen, showGate, starting } = useStore()
   const [menu, setMenu] = useState(false)
   useEffect(() => {
     document.title = `LEADFLOW | ${VIEW_LABEL[view]}`
     document.getElementById('main')?.focus({ preventScroll: true })
     window.scrollTo(0, 0)
   }, [view])
+  // SPEC 20: no data before the start-up check ends, and the token screen when there is no server and no saved connection.
+  if (starting) return <div className="gate" role="status" aria-live="polite"><p className="muted">טוען...</p></div>
+  if (showGate) {
+    return (
+      <Suspense fallback={null}>
+        <ConnectGate />
+        <Toasts />
+      </Suspense>
+    )
+  }
   return (
     <div className="app">
       <a href="#main" className="skip">דילוג לתוכן</a>
