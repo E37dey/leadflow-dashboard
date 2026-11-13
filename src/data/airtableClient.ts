@@ -41,10 +41,25 @@ export async function fetchTable(conn: AtConnection, table: string): Promise<AtR
   return out
 }
 
-/** Owners, then Leads, then Tasks: one table at a time, well under 5 requests per second. */
-export async function loadFromAirtable(conn: AtConnection): Promise<AtData> {
-  const owners = await fetchTable(conn, AT_TABLES.owners)
+/** A table the base may not have. Once Leads loaded, the token and base are fine, so 403/404 here means "no such table". */
+async function optionalTable(conn: AtConnection, table: string, missing: string[]): Promise<AtRecord[]> {
+  try {
+    return await fetchTable(conn, table)
+  } catch (e) {
+    if (e instanceof AirtableError && (e.status === 403 || e.status === 404)) {
+      missing.push(table)
+      return []
+    }
+    throw e
+  }
+}
+
+/** Leads first (required: any error stops the load), then Owners and Tasks (optional).
+ *  One table at a time, well under 5 requests per second. */
+export async function loadFromAirtable(conn: AtConnection): Promise<AtData & { missingTables: string[] }> {
   const leads = await fetchTable(conn, AT_TABLES.leads)
-  const tasks = await fetchTable(conn, AT_TABLES.tasks)
-  return fromAirtable(owners, leads, tasks)
+  const missingTables: string[] = []
+  const owners = await optionalTable(conn, AT_TABLES.owners, missingTables)
+  const tasks = await optionalTable(conn, AT_TABLES.tasks, missingTables)
+  return { ...fromAirtable(owners, leads, tasks), missingTables }
 }

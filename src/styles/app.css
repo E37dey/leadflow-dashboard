@@ -93,7 +93,7 @@ main:focus-visible { outline: none; }
 .preset-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .range-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .range-inputs label, .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
-input[type='date'], input[type='time'], input[type='text'], input[type='email'], input[type='tel'], input[type='number'], input[type='search'], select, textarea {
+input[type='date'], input[type='time'], input[type='text'], input[type='password'], input[type='email'], input[type='tel'], input[type='number'], input[type='search'], select, textarea {
   height: 40px; padding: 0 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); color: var(--text);
 }
 textarea { height: auto; padding: 10px 12px; resize: vertical; line-height: 1.5; }
@@ -734,3 +734,19 @@ td.late { color: var(--late); }
 .rgm-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .rgm-legend b { color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .rgm-city { transition: none; } }
+
+/* ---------- token screen (SPEC 20) ---------- */
+.gate { min-height: 100dvh; display: grid; place-items: center; padding: 32px 16px; background: var(--bg); }
+.gate-card { width: min(520px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 28px 28px 22px; }
+.gate-card:hover { border-color: var(--border); }
+.gate-title { display: inline-flex; align-items: center; gap: 10px; margin: 6px 0 0; font-size: 24px; font-weight: 800; }
+.gate-title svg { color: var(--violet); }
+.gate-card .field input { height: 42px; }
+.gate-submit { justify-content: center; height: 44px; font-size: 15px; }
+.gate-help { border-top: 1px solid var(--border); padding-top: 12px; }
+.gate-help summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.gate-help[open] summary { margin-bottom: 10px; }
+.gate-help .btn { margin-top: 10px; }
+.gate-alt { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 12px; }
+.gate-foot { display: flex; align-items: center; gap: 6px; margin: 0; }
+@media (max-width: 480px) { .gate-card { padding: 22px 18px 18px; } }

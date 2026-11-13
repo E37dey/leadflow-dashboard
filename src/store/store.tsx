@@ -124,7 +124,18 @@ interface Ctx extends Data {
   addActivity: (a: { leadId: string; type: 'note' | 'call' | 'email' | 'meeting'; text: string; nextAction?: string }) => Promise<boolean>
   weights: Weights
   setWeights: (w: Weights) => void
+  /** SPEC 20: the token screen. True once the start-up check found no server and no working saved connection. */
+  showGate: boolean
+  /** Before the start-up check ends: show neither demo data nor the token screen yet. */
+  starting: boolean
+  /** Why the saved connection failed at start-up (shown on the token screen). */
+  gateError: string | null
+  /** Skip the token screen for this browser session and use the demo data. */
+  chooseDemo: () => void
 }
+
+const DEMO_KEY = 'leadflow:demo-chosen'
+const readDemoChosen = () => { try { return sessionStorage.getItem(DEMO_KEY) === '1' } catch { return false } }
 
 const StoreCtx = createContext<Ctx | null>(null)
 
@@ -142,6 +153,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [owners, setOwners] = useState<Owner[]>(demoOwners)
   const [source, setSource] = useState<DataSource>({ kind: 'demo' })
   const [airtableBusy, setBusy] = useState(false)
+  const [startupDone, setStartupDone] = useState(false)
+  const [demoChosen, setDemoChosen] = useState(readDemoChosen)
+  const [gateError, setGateError] = useState<string | null>(null)
+  const chooseDemo = useCallback(() => {
+    try { sessionStorage.setItem(DEMO_KEY, '1') } catch { /* this page only */ }
+    setDemoChosen(true)
+  }, [])
   const conn = useRef<AtConnection | null>(readConnection())
   const [server, setServer] = useState<ServerStatus | null>(null)
   const [weights, setWeightsState] = useState<Weights>(readWeights)
@@ -225,7 +243,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     conn.current = c
     if (remember) writeConnection(c)
     else clearConnection()
-    toast(`נטענו מ-Airtable ${d.leads.length} לידים ו-${d.tasks.length} משימות` + (d.rejected.length ? `, ${d.rejected.length} רשומות נדחו` : ''))
+    setGateError(null)
+    toast(`נטענו מ-Airtable ${d.leads.length} לידים ו-${d.tasks.length} משימות` + (d.rejected.length ? `, ${d.rejected.length} רשומות נדחו` : '')
+      + (d.missingTables.length ? `. אין בבסיס את הטבלאות ${d.missingTables.join(', ')}, הן נטענו ריקות` : ''))
   }, [load, toast])
 
   /** Server path: same restore as above, data from /api/data. */
@@ -296,9 +316,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setGlobal(defaultGlobal())
     setOwners(demoOwners)
     setSource({ kind: 'demo' })
+    chooseDemo()
     dispatchRaw({ type: 'reset' })
     toast('התנתקת מ-Airtable. מוצגים נתוני ההדגמה.')
-  }, [demoOwners, toast])
+  }, [demoOwners, toast, chooseDemo])
 
   // On start: the server API first (token on the server). Without it, a remembered browser connection.
   // On failure the local data stays and the error shows.
@@ -310,8 +331,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setServer(st)
       if (st.state === 'connected' || st.state === 'empty') return loadServer(false).then(() => undefined)
       if (st.state === 'error') toast(st.error?.message ?? 'שגיאת חיבור ל-Airtable', { tone: 'error' })
-      if (conn.current) return load(conn.current).then(() => undefined)
+      if (conn.current) {
+        return load(conn.current).then(() => undefined, (e: Error) => {
+          setGateError(`החיבור השמור לא עבד: ${e.message}`)
+          toast(e.message, { tone: 'error' })
+        })
+      }
     }).catch((e: Error) => toast(e.message, { tone: 'error' }))
+      .finally(() => setStartupDone(true))
   }, [load, loadServer, toast])
 
   const value: Ctx = {
@@ -340,6 +367,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     disconnectAirtable,
     airtableBusy,
     savedConnection: readConnection(),
+    showGate: startupDone && source.kind === 'demo' && !demoChosen,
+    starting: !startupDone && !demoChosen,
+    gateError,
+    chooseDemo,
     server,
     refreshServer,
     updateLeadRemote,

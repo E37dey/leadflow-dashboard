@@ -1,26 +1,26 @@
 // SPEC: Should 14, "מקור נתונים: Airtable". Connect a base with a read-only token; the data loads from it.
 import { useState } from 'react'
 import { CloudDownload, Link2, Link2Off, RefreshCw } from 'lucide-react'
-import { validBaseId, validToken } from '../../domain/airtable'
+import { extractBaseId, validBaseId, validToken } from '../../domain/airtable'
 import { useStore } from '../../store/store'
 import { fmt } from '../../components/ui/format'
-
-export const DEFAULT_BASE_ID = 'appxPmVAUAsA7yIIm'
 
 export default function AirtableSource() {
   const { source, connectAirtable, reloadAirtable, disconnectAirtable, airtableBusy, savedConnection } = useStore()
   const [token, setToken] = useState(savedConnection?.token ?? '')
-  const [baseId, setBaseId] = useState(savedConnection?.baseId ?? DEFAULT_BASE_ID)
+  const [baseId, setBaseId] = useState(savedConnection?.baseId ?? '')
   const [remember, setRemember] = useState(!!savedConnection)
   const [error, setError] = useState<string | null>(null)
   const connected = source.kind === 'airtable'
 
   const connect = async () => {
     setError(null)
+    const base = extractBaseId(baseId)
     if (!validToken(token)) return setError('טוקן של Airtable מתחיל ב-pat.')
-    if (!validBaseId(baseId)) return setError('Base ID מתחיל ב-app ויש בו 17 תווים.')
+    if (!validBaseId(base)) return setError('Base ID מתחיל ב-app ויש בו 17 תווים. אפשר להדביק את כל הכתובת של הבסיס.')
+    setBaseId(base)
     try {
-      await connectAirtable({ token, baseId }, remember)
+      await connectAirtable({ token, baseId: base }, remember)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -68,8 +68,8 @@ export default function AirtableSource() {
       ) : (
         <form className="at-form" onSubmit={(e) => { e.preventDefault(); connect() }}>
           <ol className="at-steps muted small">
-            <li>ב-airtable.com/create/tokens יוצרים טוקן עם הרשאות data.records:read ו-schema.bases:read בלבד.</li>
-            <li>בגישה בוחרים רק את הבסיס של LEADFLOW.</li>
+            <li>ב-Airtable: Builder hub, ואז Personal access tokens. יוצרים טוקן עם הרשאות data.records:read ו-schema.bases:read בלבד.</li>
+            <li>בגישה בוחרים רק את הבסיס שרוצים להציג. בבסיס צריכה להיות טבלה בשם Leads.</li>
             <li>מדביקים כאן ולוחצים התחברות.</li>
           </ol>
           <div className="form-grid">
@@ -80,7 +80,7 @@ export default function AirtableSource() {
             </label>
             <label className="field" htmlFor="at-base">
               Base ID
-              <input id="at-base" type="text" dir="ltr" spellCheck={false} value={baseId} onChange={(e) => setBaseId(e.target.value)} />
+              <input id="at-base" type="text" dir="ltr" spellCheck={false} placeholder="app..." value={baseId} onChange={(e) => setBaseId(e.target.value)} />
             </label>
           </div>
           <div className="row-actions at-actions">

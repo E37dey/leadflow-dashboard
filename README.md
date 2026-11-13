@@ -35,13 +35,16 @@ Google Maps → Apify → `scripts/places-to-airtable.mjs` → Airtable → **ש
 - **הנתונים לא בריפו:** עותק מקומי ב-`.data/` (ב-`.gitignore`).
 - **הקמת הבסיס:** [docs/AIRTABLE_SETUP.md](docs/AIRTABLE_SETUP.md).
 
+## התחברות עם טוקן משלכם
+כשאין שרת עם טוקן (באתר הציבורי ב-GitHub Pages), הדאשבורד נפתח במסך התחברות ולא מציג שום נתון לפני שמדביקים Personal Access Token ו-Base ID. אפשר להדביק את כל הכתובת של הבסיס, והמזהה נשלף ממנה. הטוקן נשלח רק ל-api.airtable.com, ונשמר בדפדפן רק אם מסמנים ״לזכור״. מי שאין לו בסיס יכול לייבא את התבנית [`public/airtable-template/Leads.csv`](public/airtable-template/Leads.csv) (12 מאפיות בדויות) לבסיס חדש, בטבלה בשם `Leads`: [docs/AIRTABLE_TEST_BASE.md](docs/AIRTABLE_TEST_BASE.md). ״הצג נתוני הדגמה״ נכנס בלי Airtable.
+
 ## הרצה מקומית
 ```
 npm install
 copy env.example .env.local
 npm run dev
 ```
-ממלאים ב-`.env.local` את `AIRTABLE_TOKEN` ו-`AIRTABLE_BASE_ID`. בלי הקובץ הדאשבורד עובד על נתוני ההדגמה, והסטטוס מראה ״חסרה הגדרה״.
+ממלאים ב-`.env.local` את `AIRTABLE_TOKEN` ו-`AIRTABLE_BASE_ID`. בלי הקובץ הדאשבורד נפתח במסך ההתחברות עם טוקן, כמו באתר הציבורי.
 
 בדיקות, lint ובנייה:
 ```

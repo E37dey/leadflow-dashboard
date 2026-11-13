@@ -62,6 +62,8 @@ export const F = {
 export interface AtRecord {
   id: string
   fields: Record<string, unknown>
+  /** Set by Airtable on every record; the fallback for an empty "Created at" (a test base built by hand). */
+  createdTime?: string
 }
 
 export interface AtData {
@@ -77,7 +79,13 @@ const isoOrNull = (v: unknown): string | null => {
   const s = str(v)
   return s && !Number.isNaN(Date.parse(s)) ? new Date(Date.parse(s)).toISOString() : null
 }
-const numOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+// A test base imported from CSV can hold numbers and checkboxes as text ("4.6", "true"): read both.
+const numOrNull = (v: unknown): number | null => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(v)) return Number(v)
+  return null
+}
+const isChecked = (v: unknown) => v === true || (typeof v === 'string' && ['true', 'checked', 'yes', '1', 'כן'].includes(v.trim().toLowerCase()))
 const STATUSES: Place['status'][] = ['open', 'temporarily_closed', 'closed']
 const CLASSES: Place['recordClass'][] = ['unique', 'branch', 'suspected_duplicate']
 function parseHoursField(v: unknown): Place['hours'] {
@@ -101,7 +109,7 @@ function readPlace(f: Record<string, unknown>): Place | undefined {
     rating: numOrNull(f[F.rating]), reviews: numOrNull(f[F.reviews]), price: str(f[F.price]),
     lat: numOrNull(f[F.lat]), lng: numOrNull(f[F.lng]), mapsUrl: str(f[F.mapsUrl]),
     status: STATUSES.includes(status) ? status : 'open',
-    stars: F.stars.some((k) => typeof f[k] === 'number') ? (F.stars.map((k) => numOrNull(f[k]) ?? 0) as [number, number, number, number, number]) : null,
+    stars: F.stars.some((k) => numOrNull(f[k]) !== null) ? (F.stars.map((k) => numOrNull(f[k]) ?? 0) as [number, number, number, number, number]) : null,
     hours: parseHoursField(f[F.hours]),
     categories: (str(f[F.categories]) ?? '').split(',').map((c) => c.trim()).filter(Boolean),
     images: numOrNull(f[F.images]),
@@ -147,10 +155,12 @@ export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksR
   const leadByRec = new Map<string, string>()
   for (const r of leadsRec) {
     const f = r.fields
-    const id = str(f[F.id]), fullName = str(f[F.fullName]), createdAt = isoOrNull(f[F.createdAt])
+    const id = str(f[F.id]), fullName = str(f[F.fullName])
+    // Empty "Created at": the record's own creation time. A value that is there but not a date is still rejected.
+    const createdAt = f[F.createdAt] == null || f[F.createdAt] === '' ? isoOrNull(r.createdTime) : isoOrNull(f[F.createdAt])
     const place = readPlace(f)
     const source = f[F.source] as Source, stage = (f[F.stage] ?? (place ? 'new' : undefined)) as Stage
-    const value = typeof f[F.value] === 'number' ? (f[F.value] as number) : 0
+    const value = numOrNull(f[F.value]) ?? 0
     if (!id || !fullName) { reject(AT_TABLES.leads, r, 'חסר ID או שם'); continue }
     if (!createdAt) { reject(AT_TABLES.leads, r, 'תאריך יצירה לא תקין'); continue }
     if (!SOURCES.includes(source)) { reject(AT_TABLES.leads, r, `מקור לא מוכר: ${String(f[F.source])}`); continue }
@@ -172,7 +182,7 @@ export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksR
       nextFollowUpAt: isoOrNull(f[F.nextFollowUpAt]),
       notes: str(f[F.notes]) ?? '',
       activityLog: parseActivity(f[F.activity]),
-      ...(place ? { place, inPipeline: f[F.pipeline] === true } : {}),
+      ...(place ? { place, inPipeline: isChecked(f[F.pipeline]) } : {}),
     })
     leadByRec.set(r.id, id)
   }
@@ -188,7 +198,7 @@ export function fromAirtable(ownersRec: AtRecord[], leadsRec: AtRecord[], tasksR
       title,
       leadId: (leadRec && leadByRec.get(leadRec)) ?? null,
       dueAt,
-      done: f[F.done] === true,
+      done: isChecked(f[F.done]),
       createdAt: isoOrNull(f[F.createdAt]) ?? dueAt,
     }
     const rule = str(f[F.ruleId])
@@ -270,11 +280,13 @@ export interface AtConnection {
 
 export const validToken = (t: string) => /^pat[A-Za-z0-9.]{10,}$/.test(t.trim())
 export const validBaseId = (b: string) => /^app[A-Za-z0-9]{14}$/.test(b.trim())
+/** The base id from what the user pasted: the id itself or any airtable.com URL of the base. */
+export const extractBaseId = (input: string) => input.trim().match(/\bapp[A-Za-z0-9]{14}\b/)?.[0] ?? input.trim()
 
 /** Hebrew message for an API failure (SPEC: errors do not replace the data). */
 export function explainError(status: number | null, message = ''): string {
   if (status === 401) return 'הטוקן לא תקין או שפג תוקפו (401).'
-  if (status === 403) return 'לטוקן אין הרשאה לבסיס הזה (403). בדקו הרשאות קריאה וגישה לבסיס.'
+  if (status === 403) return 'אין גישה (403): לטוקן אין הרשאה לבסיס הזה, או שהבסיס או הטבלה לא קיימים. בדקו את ה-Access של הטוקן, את ה-Base ID ושיש טבלה בשם Leads.'
   if (status === 404) return 'הבסיס או הטבלה לא נמצאו (404). בדקו את ה-Base ID ואת שמות הטבלאות.'
   if (status === 429) return 'יותר מדי בקשות (429). נסו שוב בעוד כמה שניות.'
   if (status === null) return 'אין חיבור לרשת או ש-Airtable לא זמין.'
