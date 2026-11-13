@@ -18,10 +18,17 @@ function templateRecords(): AtRecord[] {
   }))
 }
 
-/** A fake Airtable: tables by name; a missing table answers like Airtable (403 model not found). */
-function fakeAirtable(tables: Record<string, AtRecord[]>, leadsStatus = 200) {
+/** A fake Airtable: tables by name; a missing table answers like Airtable (403 model not found).
+ *  `schemaOpen`: the base's schema endpoint answers (the token reaches the base). */
+function fakeAirtable(tables: Record<string, AtRecord[]>, leadsStatus = 200, schemaOpen = true) {
   return vi.fn(async (url: string) => {
-    const table = decodeURIComponent(new URL(url).pathname.split('/')[3])
+    const path = new URL(url).pathname.split('/')
+    if (path[2] === 'meta') {
+      return schemaOpen
+        ? new Response(JSON.stringify({ tables: Object.keys(tables).map((name, i) => ({ id: `tbl${i}`, name })) }), { status: 200 })
+        : new Response(JSON.stringify({ error: { type: 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND' } }), { status: 403 })
+    }
+    const table = decodeURIComponent(path[3])
     if (table === 'Leads' && leadsStatus !== 200) return new Response(JSON.stringify({ error: { type: 'AUTHENTICATION_REQUIRED' } }), { status: leadsStatus })
     if (!tables[table]) return new Response(JSON.stringify({ error: { type: 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND' } }), { status: 403 })
     return new Response(JSON.stringify({ records: tables[table] }), { status: 200 })
@@ -70,6 +77,20 @@ describe('test base from the CSV template', () => {
     await expect(loadFromAirtable(CONN)).rejects.toThrow('401')
     vi.stubGlobal('fetch', fakeAirtable({}))
     await expect(loadFromAirtable(CONN)).rejects.toThrow('Leads')
+  })
+
+  it('403 on Leads in a base that opens: says the Leads table is missing and lists the tables', async () => {
+    vi.stubGlobal('fetch', fakeAirtable({ Orders: [], Branches: [] }))
+    const err = (await loadFromAirtable(CONN).then(() => new Error("loaded"), (e: Error) => e)) as Error
+    expect(err.message).toContain('אין טבלה בשם Leads')
+    expect(err.message).toContain('Orders, Branches')
+  })
+
+  it('403 on Leads in a base the token cannot open: says wrong Base ID or no access', async () => {
+    vi.stubGlobal('fetch', fakeAirtable({}, 200, false))
+    const err = (await loadFromAirtable(CONN).then(() => new Error("loaded"), (e: Error) => e)) as Error
+    expect(err.message).toContain('Base ID שגוי')
+    expect(err.message).not.toContain('אין טבלה')
   })
 
   it('the token goes only to api.airtable.com', async () => {

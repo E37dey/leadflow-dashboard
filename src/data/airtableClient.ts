@@ -7,8 +7,9 @@ const API = 'https://api.airtable.com/v0'
 
 export class AirtableError extends Error {
   status: number | null
-  constructor(status: number | null, message: string) {
-    super(explainError(status, message))
+  /** `ready`: the message is already the Hebrew text to show. */
+  constructor(status: number | null, message: string, ready = false) {
+    super(ready ? message : explainError(status, message))
     this.status = status
   }
 }
@@ -54,10 +55,37 @@ async function optionalTable(conn: AtConnection, table: string, missing: string[
   }
 }
 
+/** Leads failed with 403/404, which Airtable returns both for "no access" and for "no such table".
+ *  The base's schema (schema.bases:read) tells the two apart: if it opens, the base is fine and Leads is missing. */
+async function explainLeadsMiss(conn: AtConnection, status: number): Promise<AirtableError> {
+  try {
+    const res = await fetch(`${API}/meta/bases/${encodeURIComponent(conn.baseId.trim())}/tables`, {
+      headers: { Authorization: `Bearer ${conn.token.trim()}` },
+    })
+    if (res.ok) {
+      const names = ((await res.json())?.tables ?? []).map((t: { name?: unknown }) => String(t.name)).filter(Boolean) as string[]
+      const list = names.length ? ` הטבלאות בו: ${names.slice(0, 6).join(', ')}${names.length > 6 ? '…' : ''}.` : ''
+      return new AirtableError(status, `הטוקן והבסיס תקינים, אבל בבסיס הזה אין טבלה בשם ${AT_TABLES.leads}.${list} בדקו שזה הבסיס הנכון, או שנו את שם הטבלה ל-${AT_TABLES.leads}.`, true)
+    }
+    if (res.status === 403 || res.status === 404) {
+      return new AirtableError(status, `אין גישה לבסיס (${status}): ה-Base ID שגוי, או שבהגדרות הטוקן (Access) לא נבחר הבסיס הזה.`, true)
+    }
+  } catch {
+    /* the schema call is only a hint: fall back to the general message */
+  }
+  return new AirtableError(status, '')
+}
+
 /** Leads first (required: any error stops the load), then Owners and Tasks (optional).
  *  One table at a time, well under 5 requests per second. */
 export async function loadFromAirtable(conn: AtConnection): Promise<AtData & { missingTables: string[] }> {
-  const leads = await fetchTable(conn, AT_TABLES.leads)
+  let leads: AtRecord[]
+  try {
+    leads = await fetchTable(conn, AT_TABLES.leads)
+  } catch (e) {
+    if (e instanceof AirtableError && (e.status === 403 || e.status === 404)) throw await explainLeadsMiss(conn, e.status)
+    throw e
+  }
   const missingTables: string[] = []
   const owners = await optionalTable(conn, AT_TABLES.owners, missingTables)
   const tasks = await optionalTable(conn, AT_TABLES.tasks, missingTables)
